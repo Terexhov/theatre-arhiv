@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админка — Архив театра</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f5f5f3; color: #1a1a1a; font-size: 14px; }
+
+    nav {
+      background: #1a1a1a; color: white;
+      display: flex; align-items: center;
+      padding: 0 1.5rem; height: 52px; gap: 0;
+    }
+    nav h1 { font-size: 0.9rem; font-weight: 500; letter-spacing: 0.05em; flex: 1; }
+    nav a {
+      color: rgba(255,255,255,0.55); text-decoration: none;
+      font-size: 0.82rem; padding: 0 1rem; height: 52px;
+      display: flex; align-items: center; border-bottom: 2px solid transparent;
+    }
+    nav a.active, nav a:hover { color: white; border-bottom-color: white; }
+
+    .layout { display: flex; height: calc(100vh - 52px); }
+
+    .list-panel {
+      width: 280px; border-right: 1px solid #e0ddd8;
+      background: white; display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .list-header {
+      padding: 0.75rem; border-bottom: 1px solid #e0ddd8;
+      display: flex; gap: 6px;
+    }
+    .list-header input {
+      flex: 1; border: 1px solid #ddd; padding: 0.4rem 0.65rem;
+      font-size: 0.82rem; outline: none;
+    }
+    .list-items { overflow-y: auto; flex: 1; }
+    .list-item {
+      padding: 0.6rem 0.9rem; border-bottom: 1px solid #f0ede8;
+      cursor: pointer;
+    }
+    .list-item:hover { background: #faf9f7; }
+    .list-item.active { background: #f0ede8; }
+    .item-name { font-size: 0.85rem; }
+    .item-meta { font-size: 0.7rem; color: #888; margin-top: 2px; }
+
+    .form-panel { flex: 1; overflow-y: auto; padding: 1.25rem 1.75rem; }
+    .form-panel h2 {
+      font-size: 1rem; font-weight: 500; margin-bottom: 1rem;
+      padding-bottom: 0.65rem; border-bottom: 1px solid #e0ddd8;
+    }
+
+    .field { margin-bottom: 0.85rem; }
+    .field label { display: block; font-size: 0.68rem; color: #888; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .field input, .field textarea, .field select {
+      width: 100%; border: 1px solid #ddd; padding: 0.48rem 0.65rem;
+      font-size: 0.88rem; outline: none; font-family: sans-serif; background: white;
+    }
+    .field textarea { resize: vertical; min-height: 70px; }
+    .field input:focus, .field textarea:focus, .field select:focus { border-color: #1a1a1a; }
+
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.85rem; }
+
+    .btn {
+      background: #1a1a1a; color: white; border: none;
+      padding: 0.42rem 1rem; font-size: 0.82rem; cursor: pointer;
+    }
+    .btn:hover { background: #333; }
+    .btn-sm {
+      background: none; border: 1px solid #ccc; color: #555;
+      padding: 0.3rem 0.7rem; font-size: 0.75rem; cursor: pointer;
+    }
+    .btn-sm:hover { border-color: #999; }
+    .btn-danger { border-color: #d00 !important; color: #d00 !important; }
+
+    .form-actions { display: flex; gap: 8px; margin-top: 1rem; padding-top: 0.85rem; border-top: 1px solid #e0ddd8; }
+
+    .section { margin-top: 1.25rem; }
+    .section-title {
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #888; margin-bottom: 0.6rem; padding-bottom: 0.35rem;
+      border-bottom: 1px solid #e0ddd8;
+    }
+
+    /* Теги */
+    .tag-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 0.6rem; }
+    .tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      border: 1px solid #ddd; padding: 0.2rem 0.55rem;
+      font-size: 0.75rem; background: white;
+    }
+    .tag button { background: none; border: none; cursor: pointer; color: #aaa; line-height: 1; padding: 0; }
+    .tag button:hover { color: #d00; }
+    .add-row { display: flex; gap: 6px; }
+    .add-row select, .add-row input {
+      flex: 1; border: 1px solid #ddd; padding: 0.4rem 0.6rem;
+      font-size: 0.82rem; outline: none;
+    }
+
+    /* Документы */
+    .doc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 6px; margin-bottom: 0.75rem;
+    }
+    .doc-card {
+      border: 1px solid #e0ddd8; background: white;
+      cursor: pointer; overflow: hidden; position: relative;
+    }
+    .doc-card:hover { border-color: #999; }
+    .doc-card.active { border-color: #1a1a1a; border-width: 2px; }
+    .doc-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .doc-card .doc-icon {
+      width: 100%; aspect-ratio: 1; display: flex; align-items: center;
+      justify-content: center; font-size: 1.8rem; background: #f5f4f2;
+    }
+    .doc-card .doc-label {
+      padding: 4px 6px; font-size: 0.65rem; color: #555;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      border-top: 1px solid #f0ede8;
+    }
+    .doc-card .doc-type-badge {
+      position: absolute; top: 4px; left: 4px;
+      background: rgba(0,0,0,0.6); color: white;
+      font-size: 0.6rem; padding: 1px 5px;
+    }
+    .doc-card .del-btn {
+      position: absolute; top: 4px; right: 4px;
+      background: rgba(0,0,0,0.6); color: white; border: none;
+      width: 20px; height: 20px; cursor: pointer; font-size: 0.65rem;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0;
+    }
+    .doc-card:hover .del-btn { opacity: 1; }
+
+    /* Форма загрузки документа */
+    .upload-panel {
+      border: 1px solid #e0ddd8; background: #fafaf9; padding: 1rem; margin-top: 0.75rem;
+    }
+    .upload-panel h4 { font-size: 0.8rem; font-weight: 500; margin-bottom: 0.75rem; color: #444; }
+    .drop-zone {
+      border: 1.5px dashed #ccc; padding: 1rem; text-align: center;
+      cursor: pointer; margin-bottom: 0.75rem; background: white;
+    }
+    .drop-zone:hover, .drop-zone.drag { border-color: #1a1a1a; }
+    .drop-zone p { font-size: 0.8rem; color: #888; }
+    .drop-zone input { display: none; }
+    .selected-file { font-size: 0.8rem; color: #444; margin-top: 0.35rem; font-style: italic; }
+
+    .multiselect { border: 1px solid #ddd; max-height: 120px; overflow-y: auto; background: white; }
+    .multiselect label {
+      display: flex; align-items: center; gap: 7px;
+      padding: 0.3rem 0.65rem; font-size: 0.82rem; cursor: pointer;
+      border-bottom: 1px solid #f5f4f2;
+    }
+    .multiselect label:hover { background: #faf9f7; }
+
+    .progress { height: 3px; background: #e0ddd8; margin-top: 0.5rem; display: none; }
+    .progress .fill { height: 100%; background: #1a1a1a; width: 0; transition: width 0.3s; }
+
+    .empty-state { color: #aaa; font-size: 0.85rem; padding: 1.5rem; text-align: center; }
+
+    .toast {
+      position: fixed; bottom: 1.25rem; right: 1.25rem;
+      background: #1a1a1a; color: white; padding: 0.65rem 1.1rem;
+      font-size: 0.82rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999;
+    }
+    .toast.show { opacity: 1; }
+    .toast.err { background: #c00; }
+
+    /* Боковая панель документа */
+    .doc-detail {
+      display: none; position: fixed; top: 0; right: 0;
+      width: 380px; height: 100vh; background: white;
+      border-left: 1px solid #e0ddd8; overflow-y: auto; z-index: 50;
+      padding: 1.25rem;
+    }
+    .doc-detail.open { display: block; }
+    .doc-detail h3 { font-size: 0.95rem; font-weight: 500; margin-bottom: 1rem; }
+    .doc-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.15); z-index: 49;
+    }
+    .doc-overlay.open { display: block; }
+  </style>
+</head>
+<body>
+
+<nav>
+  <h1>Архив театра — Админка</h1>
+  <a href="#" id="tab-persons" class="active" onclick="showTab('persons')">Персоны</a>
+  <a href="#" id="tab-productions" onclick="showTab('productions')">Спектакли</a>
+  <a href="#" id="tab-documents" onclick="showTab('documents')">Документы</a>
+  <a href="index.html" target="_blank">→ Сайт</a>
+</nav>
+
+<div class="layout">
+  <div class="list-panel">
+    <div class="list-header">
+      <input type="text" id="list-search" placeholder="Поиск…" oninput="filterList()">
+      <button class="btn" onclick="newItem()">+ Новый</button>
+    </div>
+    <div class="list-items" id="list-items"></div>
+  </div>
+  <div class="form-panel" id="form-panel">
+    <div class="empty-state">Выберите запись слева или создайте новую</div>
+  </div>
+</div>
+
+<div class="doc-overlay" id="doc-overlay" onclick="closeDocDetail()"></div>
+<div class="doc-detail" id="doc-detail"></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://127.0.0.1:8000';
+let currentTab = 'persons';
+let allItems = [];
+let allPersons = [];
+let allProductions = [];
+let currentId = null;
+let docTypes = [];
+let uploadFile = null;
+
+const DOC_ICONS = {
+  'фотография': '🖼',
+  'афиша': '🎭',
+  'программка': '📋',
+  'видеозапись': '🎬',
+  'рецензия': '📝',
+  'текст пьесы': '📖',
+  'другое': '📄',
+};
+
+const IMAGE_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.tiff'];
+
+function isImage(path) {
+  if (!path) return false;
+  return IMAGE_EXTS.some(e => path.toLowerCase().endsWith(e));
+}
+
+async function init() {
+  const r = await fetch(`${API}/doc-types`);
+  docTypes = await r.json();
+  showTab('persons');
+}
+
+async function showTab(tab) {
+  currentTab = tab;
+  currentId = null;
+  document.querySelectorAll('nav a[id^=tab]').forEach(a => a.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  document.getElementById('form-panel').innerHTML = '<div class="empty-state">Выберите запись слева или создайте новую</div>';
+  document.getElementById('list-search').value = '';
+  await loadGlobals();
+  await loadList();
+}
+
+async function loadGlobals() {
+  const [pr, pe] = await Promise.all([
+    fetch(`${API}/productions?limit=200`).then(r => r.json()),
+    fetch(`${API}/persons?limit=200`).then(r => r.json()),
+  ]);
+  allProductions = pr;
+  allPersons = pe;
+}
+
+async function loadList() {
+  const url = currentTab === 'documents' ? `${API}/documents` : `${API}/${currentTab}`;
+  const res = await fetch(url);
+  allItems = await res.json();
+  renderList(allItems);
+}
+
+function renderList(items) {
+  const c = document.getElementById('list-items');
+  if (!items.length) { c.innerHTML = '<div class="empty-state">Нет записей</div>'; return; }
+  c.innerHTML = items.map(item => {
+    let name, meta;
+    if (currentTab === 'persons') {
+      name = `${item.last_name} ${item.first_name || ''}`.trim();
+      meta = item.roles ? item.roles.join(', ') : '';
+    } else if (currentTab === 'productions') {
+      name = item.title;
+      meta = item.season || '';
+    } else {
+      name = item.title;
+      meta = item.doc_type || '';
+    }
+    return `<div class="list-item ${item.id === currentId ? 'active':''}" onclick="openItem(${item.id})">
+      <div class="item-name">${name}</div>
+      ${meta ? `<div class="item-meta">${meta}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function filterList() {
+  const q = document.getElementById('list-search').value.toLowerCase();
+  const filtered = allItems.filter(item => {
+    const text = currentTab === 'persons'
+      ? `${item.last_name} ${item.first_name||''}`.toLowerCase()
+      : (item.title || '').toLowerCase();
+    return text.includes(q);
+  });
+  renderList(filtered);
+}
+
+async function openItem(id) {
+  currentId = id;
+  filterList();
+  if (currentTab === 'persons') {
+    const r = await fetch(`${API}/persons/${id}`); const d = await r.json();
+    renderPersonForm(d.person, d.productions, d.documents || []);
+  } else if (currentTab === 'productions') {
+    const r = await fetch(`${API}/productions/${id}`); const d = await r.json();
+    renderProductionForm(d.production, d.persons, d.documents || []);
+  } else {
+    const r = await fetch(`${API}/documents/${id}`); const d = await r.json();
+    renderDocumentForm(d.document, d.productions, d.persons);
+  }
+}
+
+function newItem() {
+  currentId = null;
+  if (currentTab === 'persons') renderPersonForm({}, [], []);
+  else if (currentTab === 'productions') renderProductionForm({}, [], []);
+  else renderDocumentForm({}, [], []);
+}
+
+// ========================
+// ПЕРСОНА
+// ========================
+
+function renderPersonForm(p, productions, documents) {
+  document.getElementById('form-panel').innerHTML = `
+    <h2>${p.id ? 'Редактировать персону' : 'Новая персона'}</h2>
+    <div class="row2">
+      <div class="field"><label>Фамилия *</label><input id="f-last" value="${p.last_name||''}"></div>
+      <div class="field"><label>Имя</label><input id="f-first" value="${p.first_name||''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Отчество</label><input id="f-pat" value="${p.patronymic||''}"></div>
+      <div class="field"><label>Роли (через запятую)</label><input id="f-roles" value="${p.roles ? p.roles.join(', ') : ''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Дата рождения</label><input id="f-born" type="date" value="${p.born ? p.born.split('T')[0] : ''}"></div>
+      <div class="field"><label>Дата смерти</label><input id="f-died" type="date" value="${p.died ? p.died.split('T')[0] : ''}"></div>
+    </div>
+    <div class="field"><label>Биография</label><textarea id="f-bio">${p.bio||''}</textarea></div>
+    <div class="form-actions">
+      <button class="btn" onclick="savePerson(${p.id||0})">${p.id ? 'Сохранить' : 'Создать'}</button>
+      ${p.id ? `<button class="btn-sm btn-danger" onclick="deleteItem(${p.id})">Удалить</button>` : ''}
+    </div>
+
+    ${p.id ? `
+    <div class="section">
+      <div class="section-title">Спектакли</div>
+      ${productions.length ? productions.map(pr =>
+        `<div style="padding:0.4rem 0;border-bottom:1px solid #f5f4f2;font-size:0.85rem">
+          ${pr.title} <span style="color:#888;font-size:0.75rem">${pr.season||''} · ${pr.role_in_production||''}</span>
+        </div>`).join('') : '<div style="color:#aaa;font-size:0.8rem">Нет спектаклей</div>'}
+    </div>
+
+    <div class="section">
+      <div class="section-title">Документы (${documents.length})</div>
+      <div class="doc-grid">${renderDocCards(documents, null, p.id)}</div>
+      <button class="btn-sm" onclick="showUploadPanel('person', ${p.id})">+ Добавить документ</button>
+      <div id="upload-panel-person-${p.id}"></div>
+    </div>
+    ` : ''}
+  `;
+}
+
+async function savePerson(id) {
+  const roles = document.getElementById('f-roles').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const body = {
+    last_name: document.getElementById('f-last').value.trim(),
+    first_name: document.getElementById('f-first').value.trim() || null,
+    patronymic: document.getElementById('f-pat').value.trim() || null,
+    born: document.getElementById('f-born').value || null,
+    died: document.getElementById('f-died').value || null,
+    roles, bio: document.getElementById('f-bio').value.trim() || null,
+  };
+  if (!body.last_name) { toast('Введите фамилию', true); return; }
+  const res = await fetch(id ? `${API}/persons/${id}` : `${API}/persons`, {
+    method: id ? 'PUT' : 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  toast(id ? 'Сохранено' : 'Создано');
+  await loadList();
+  if (!id && data.id) openItem(data.id);
+}
+
+// ========================
+// СПЕКТАКЛЬ
+// ========================
+
+function renderProductionForm(p, persons, documents) {
+  const personOptions = allPersons.map(a =>
+    `<option value="${a.id}">${a.last_name} ${a.first_name||''}</option>`).join('');
+
+  document.getElementById('form-panel').innerHTML = `
+    <h2>${p.id ? 'Редактировать спектакль' : 'Новый спектакль'}</h2>
+    <div class="field"><label>Название *</label><input id="f-title" value="${p.title||''}"></div>
+    <div class="field"><label>Подзаголовок</label><input id="f-subtitle" value="${p.subtitle||''}"></div>
+    <div class="row2">
+      <div class="field"><label>Драматург</label><input id="f-playwright" value="${p.playwright||''}"></div>
+      <div class="field"><label>Жанр</label><input id="f-genre" value="${p.genre||''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Сезон</label><input id="f-season" value="${p.season||''}"></div>
+      <div class="field"><label>Дата премьеры</label><input id="f-premiere" type="date" value="${p.premiere_date ? p.premiere_date.split('T')[0] : ''}"></div>
+    </div>
+    <div class="field"><label>Описание</label><textarea id="f-desc">${p.description||''}</textarea></div>
+    <div class="form-actions">
+      <button class="btn" onclick="saveProduction(${p.id||0})">${p.id ? 'Сохранить' : 'Создать'}</button>
+      ${p.id ? `<button class="btn-sm btn-danger" onclick="deleteItem(${p.id})">Удалить</button>` : ''}
+    </div>
+
+    ${p.id ? `
+    <div class="section">
+      <div class="section-title">Участники</div>
+      <div class="tag-wrap" id="persons-tags">${renderPersonTags(persons, p.id)}</div>
+      <div class="add-row">
+        <select id="new-person-select">${personOptions}</select>
+        <input id="new-person-role" placeholder="Роль">
+        <button class="btn" onclick="addPersonToProduction(${p.id})">+</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Документы (${documents.length})</div>
+      <div class="doc-grid">${renderDocCards(documents, p.id, null)}</div>
+      <button class="btn-sm" onclick="showUploadPanel('production', ${p.id})">+ Добавить документ</button>
+      <div id="upload-panel-production-${p.id}"></div>
+    </div>
+    ` : ''}
+  `;
+}
+
+function renderPersonTags(persons, prodId) {
+  if (!persons.length) return '<span style="color:#aaa;font-size:0.8rem">Нет участников</span>';
+  return persons.map(p => `
+    <span class="tag">${p.last_name} ${p.first_name||''} <span style="color:#aaa">· ${p.role_in_production||''}</span>
+      <button onclick="removePersonFromProduction(${prodId},${p.id})">✕</button>
+    </span>`).join('');
+}
+
+async function saveProduction(id) {
+  const body = {
+    title: document.getElementById('f-title').value.trim(),
+    subtitle: document.getElementById('f-subtitle').value.trim() || null,
+    playwright: document.getElementById('f-playwright').value.trim() || null,
+    genre: document.getElementById('f-genre').value.trim() || null,
+    season: document.getElementById('f-season').value.trim() || null,
+    premiere_date: document.getElementById('f-premiere').value || null,
+    description: document.getElementById('f-desc').value.trim() || null,
+  };
+  if (!body.title) { toast('Введите название', true); return; }
+  const res = await fetch(id ? `${API}/productions/${id}` : `${API}/productions`, {
+    method: id ? 'PUT' : 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(body)
+  });
+  const data = await res.json();
+  toast(id ? 'Сохранено' : 'Создано');
+  await loadList();
+  if (!id && data.id) { await loadGlobals(); openItem(data.id); }
+}
+
+async function addPersonToProduction(prodId) {
+  const person_id = parseInt(document.getElementById('new-person-select').value);
+  const role = document.getElementById('new-person-role').value.trim() || 'актёр';
+  await fetch(`${API}/productions/${prodId}/persons`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({person_id, role_in_production: role})
+  });
+  toast('Добавлено'); openItem(prodId);
+}
+
+async function removePersonFromProduction(prodId, personId) {
+  await fetch(`${API}/productions/${prodId}/persons/${personId}`, {method:'DELETE'});
+  toast('Удалено'); openItem(prodId);
+}
+
+// ========================
+// ДОКУМЕНТЫ — форма редактирования
+// ========================
+
+function renderDocumentForm(d, productions, persons) {
+  const typeOptions = docTypes.map(t =>
+    `<option value="${t}" ${d.doc_type===t?'selected':''}>${t}</option>`).join('');
+
+  const prodChecks = allProductions.map(p =>
+    `<label><input type="checkbox" value="${p.id}" ${productions.find(r=>r.id===p.id)?'checked':''}> ${p.title} ${p.season||''}</label>`).join('');
+
+  const persChecks = allPersons.map(p =>
+    `<label><input type="checkbox" value="${p.id}" ${persons.find(r=>r.id===p.id)?'checked':''}> ${p.last_name} ${p.first_name||''}</label>`).join('');
+
+  document.getElementById('form-panel').innerHTML = `
+    <h2>${d.id ? 'Редактировать документ' : 'Новый документ'}</h2>
+
+    ${d.id && d.file_path ? `
+      <div style="margin-bottom:1rem">
+        ${isImage(d.file_path)
+          ? `<img src="${d.url}" style="max-width:100%;max-height:200px;object-fit:contain;border:1px solid #e0ddd8">`
+          : `<a href="${d.url}" target="_blank" style="font-size:0.85rem;color:#1a1a1a">📄 Открыть файл</a>`}
+      </div>` : ''}
+
+    <div class="row2">
+      <div class="field"><label>Название *</label><input id="f-title" value="${d.title||''}"></div>
+      <div class="field"><label>Тип документа</label>
+        <select id="f-doctype">${typeOptions}</select>
+      </div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Автор / Фотограф</label><input id="f-author" value="${d.author||''}"></div>
+      <div class="field"><label>Дата</label><input id="f-date" type="date" value="${d.date_created ? d.date_created.split('T')[0] : ''}"></div>
+    </div>
+    <div class="field"><label>Описание</label><textarea id="f-desc">${d.description||''}</textarea></div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Спектакли</label>
+        <div class="multiselect" id="prod-checks">${prodChecks}</div>
+      </div>
+      <div class="field">
+        <label>Персоны (изображены)</label>
+        <div class="multiselect" id="pers-checks">${persChecks}</div>
+      </div>
+    </div>
+
+    ${!d.id ? `
+    <div class="field">
+      <label>Файл *</label>
+      <div class="drop-zone" onclick="document.getElementById('doc-file-input').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDocDrop(event)">
+        <p>Нажмите или перетащите файл</p>
+        <input type="file" id="doc-file-input" onchange="selectDocFile(this.files[0])">
+      </div>
+      <div class="selected-file" id="selected-file-name">Файл не выбран</div>
+    </div>` : ''}
+
+    <div class="form-actions">
+      <button class="btn" onclick="${d.id ? `updateDocument(${d.id})` : 'createDocument()'}">${d.id ? 'Сохранить' : 'Загрузить'}</button>
+      ${d.id ? `<button class="btn-sm btn-danger" onclick="deleteDocument(${d.id})">Удалить</button>` : ''}
+    </div>
+  `;
+}
+
+function selectDocFile(file) {
+  uploadFile = file;
+  document.getElementById('selected-file-name').textContent = file ? file.name : 'Файл не выбран';
+}
+
+function handleDocDrop(event) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag');
+  selectDocFile(event.dataTransfer.files[0]);
+}
+
+function getCheckedIds(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(el => parseInt(el.value));
+}
+
+async function createDocument() {
+  if (!uploadFile) { toast('Выберите файл', true); return; }
+  const title = document.getElementById('f-title').value.trim();
+  if (!title) { toast('Введите название', true); return; }
+
+  const formData = new FormData();
+  formData.append('file', uploadFile);
+  formData.append('title', title);
+  formData.append('doc_type', document.getElementById('f-doctype').value);
+  formData.append('author', document.getElementById('f-author').value.trim());
+  formData.append('date_created', document.getElementById('f-date').value);
+  formData.append('description', document.getElementById('f-desc').value.trim());
+  formData.append('production_ids', JSON.stringify(getCheckedIds('prod-checks')));
+  formData.append('person_ids', JSON.stringify(getCheckedIds('pers-checks')));
+
+  const res = await fetch(`${API}/upload/document`, {method:'POST', body: formData});
+  const data = await res.json();
+  if (data.status === 'ok') {
+    toast('Документ загружен');
+    uploadFile = null;
+    await loadList();
+    openItem(data.id);
+  } else {
+    toast('Ошибка загрузки', true);
+  }
+}
+
+async function updateDocument(id) {
+  const formData = new FormData();
+  formData.append('title', document.getElementById('f-title').value.trim());
+  formData.append('doc_type', document.getElementById('f-doctype').value);
+  formData.append('author', document.getElementById('f-author').value.trim());
+  formData.append('date_created', document.getElementById('f-date').value);
+  formData.append('description', document.getElementById('f-desc').value.trim());
+  formData.append('production_ids', JSON.stringify(getCheckedIds('prod-checks')));
+  formData.append('person_ids', JSON.stringify(getCheckedIds('pers-checks')));
+
+  await fetch(`${API}/documents/${id}`, {method:'PUT', body: formData});
+  toast('Сохранено');
+  await loadList();
+  openItem(id);
+}
+
+async function deleteDocument(id) {
+  if (!confirm('Удалить документ и файл?')) return;
+  await fetch(`${API}/documents/${id}`, {method:'DELETE'});
+  toast('Удалено');
+  currentId = null;
+  document.getElementById('form-panel').innerHTML = '<div class="empty-state">Выберите запись слева или создайте новую</div>';
+  await loadList();
+}
+
+// ========================
+// КАРТОЧКИ ДОКУМЕНТОВ (в форме персоны/спектакля)
+// ========================
+
+function renderDocCards(docs, prodId, personId) {
+  if (!docs.length) return '<div style="color:#aaa;font-size:0.8rem;grid-column:1/-1">Нет документов</div>';
+  return docs.map(d => {
+    const icon = DOC_ICONS[d.doc_type] || '📄';
+    const thumb = isImage(d.file_path)
+      ? `<img src="${d.url}" alt="">`
+      : `<div class="doc-icon">${icon}</div>`;
+    return `<div class="doc-card" onclick="openDocDetail(${d.id})">
+      ${thumb}
+      <div class="doc-type-badge">${d.doc_type||''}</div>
+      <button class="del-btn" onclick="event.stopPropagation();deleteDocument(${d.id})">✕</button>
+      <div class="doc-label">${d.title||''}</div>
+    </div>`;
+  }).join('');
+}
+
+async function openDocDetail(docId) {
+  const r = await fetch(`${API}/documents/${docId}`);
+  const data = await r.json();
+  const d = data.document;
+  const overlay = document.getElementById('doc-overlay');
+  const panel = document.getElementById('doc-detail');
+  overlay.classList.add('open');
+  panel.classList.add('open');
+  panel.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <h3>${d.title}</h3>
+      <button class="btn-sm" onclick="closeDocDetail()">✕</button>
+    </div>
+    ${isImage(d.file_path) ? `<img src="${d.url}" style="width:100%;margin-bottom:0.75rem;border:1px solid #e0ddd8">` : `<a href="${d.url}" target="_blank" style="display:block;margin-bottom:0.75rem;font-size:0.85rem">📄 Открыть файл</a>`}
+    <div style="font-size:0.78rem;color:#888;margin-bottom:0.5rem">${d.doc_type||''} ${d.date_created ? '· ' + d.date_created.split('T')[0] : ''} ${d.author ? '· ' + d.author : ''}</div>
+    ${d.description ? `<p style="font-size:0.85rem;margin-bottom:0.75rem;line-height:1.5">${d.description}</p>` : ''}
+    ${data.productions.length ? `<div style="font-size:0.75rem;color:#888;margin-bottom:0.25rem">СПЕКТАКЛИ</div>
+      ${data.productions.map(p=>`<div style="font-size:0.85rem;padding:0.25rem 0;border-bottom:1px solid #f5f4f2">${p.title} <span style="color:#aaa">${p.season||''}</span></div>`).join('')}` : ''}
+    ${data.persons.length ? `<div style="font-size:0.75rem;color:#888;margin-top:0.75rem;margin-bottom:0.25rem">ПЕРСОНЫ</div>
+      ${data.persons.map(p=>`<div style="font-size:0.85rem;padding:0.25rem 0;border-bottom:1px solid #f5f4f2">${p.last_name} ${p.first_name||''}</div>`).join('')}` : ''}
+    <div style="margin-top:1rem">
+      <button class="btn-sm" onclick="closeDocDetail();showTab('documents').then(()=>openItem(${d.id}))">Редактировать</button>
+    </div>
+  `;
+}
+
+function closeDocDetail() {
+  document.getElementById('doc-overlay').classList.remove('open');
+  document.getElementById('doc-detail').classList.remove('open');
+}
+
+// ========================
+// ПАНЕЛЬ ЗАГРУЗКИ (внутри формы персоны/спектакля)
+// ========================
+
+function showUploadPanel(entityType, entityId) {
+  const panelId = `upload-panel-${entityType}-${entityId}`;
+  const container = document.getElementById(panelId);
+  if (!container) return;
+
+  const typeOptions = docTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+
+  container.innerHTML = `
+    <div class="upload-panel">
+      <h4>Новый документ</h4>
+      <div class="drop-zone" onclick="document.getElementById('quick-file-${entityId}').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleQuickDrop(event,'${entityType}',${entityId})">
+        <p>Нажмите или перетащите файл</p>
+        <input type="file" id="quick-file-${entityId}" onchange="quickSelectFile(this.files[0],'${entityType}',${entityId})">
+      </div>
+      <div class="selected-file" id="quick-file-name-${entityId}">Файл не выбран</div>
+      <div class="row2" style="margin-top:0.6rem">
+        <div class="field"><label>Название</label><input id="quick-title-${entityId}" placeholder="Оставьте пустым — возьмём из имени файла"></div>
+        <div class="field"><label>Тип</label><select id="quick-type-${entityId}">${typeOptions}</select></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Автор</label><input id="quick-author-${entityId}"></div>
+        <div class="field"><label>Дата</label><input type="date" id="quick-date-${entityId}"></div>
+      </div>
+      <div class="field"><label>Персоны на фото</label>
+        <div class="multiselect" id="quick-persons-${entityId}">
+          ${allPersons.map(p=>`<label><input type="checkbox" value="${p.id}"> ${p.last_name} ${p.first_name||''}</label>`).join('')}
+        </div>
+      </div>
+      <div class="progress" id="quick-progress-${entityId}"><div class="fill" id="quick-fill-${entityId}"></div></div>
+      <div style="display:flex;gap:6px;margin-top:0.75rem">
+        <button class="btn" onclick="quickUpload('${entityType}',${entityId})">Загрузить</button>
+        <button class="btn-sm" onclick="document.getElementById('${panelId}').innerHTML=''">Отмена</button>
+      </div>
+    </div>
+  `;
+  // Сохраняем файл в data-атрибуте контейнера
+  container._file = null;
+}
+
+function quickSelectFile(file, entityType, entityId) {
+  const panelId = `upload-panel-${entityType}-${entityId}`;
+  document.getElementById(panelId)._file = file;
+  document.getElementById(`quick-file-name-${entityId}`).textContent = file ? file.name : 'Файл не выбран';
+}
+
+function handleQuickDrop(event, entityType, entityId) {
+  event.preventDefault();
+  event.currentTarget.classList.remove('drag');
+  quickSelectFile(event.dataTransfer.files[0], entityType, entityId);
+}
+
+async function quickUpload(entityType, entityId) {
+  const panelId = `upload-panel-${entityType}-${entityId}`;
+  const file = document.getElementById(panelId)._file;
+  if (!file) { toast('Выберите файл', true); return; }
+
+  const progress = document.getElementById(`quick-progress-${entityId}`);
+  const fill = document.getElementById(`quick-fill-${entityId}`);
+  progress.style.display = 'block';
+  fill.style.width = '50%';
+
+  const personIds = Array.from(document.querySelectorAll(`#quick-persons-${entityId} input:checked`))
+    .map(el => parseInt(el.value));
+
+  const prodIds = entityType === 'production' ? [entityId] : [];
+  const persIds = entityType === 'person' ? [entityId, ...personIds] : personIds;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', document.getElementById(`quick-title-${entityId}`).value.trim() || file.name.replace(/\.[^.]+$/, ''));
+  formData.append('doc_type', document.getElementById(`quick-type-${entityId}`).value);
+  formData.append('author', document.getElementById(`quick-author-${entityId}`).value.trim());
+  formData.append('date_created', document.getElementById(`quick-date-${entityId}`).value);
+  formData.append('description', '');
+  formData.append('production_ids', JSON.stringify(prodIds));
+  formData.append('person_ids', JSON.stringify(persIds));
+
+  const res = await fetch(`${API}/upload/document`, {method:'POST', body: formData});
+  const data = await res.json();
+
+  fill.style.width = '100%';
+  setTimeout(() => { progress.style.display = 'none'; fill.style.width = '0'; }, 500);
+
+  if (data.status === 'ok') {
+    toast('Загружено');
+    openItem(entityId);
+  } else {
+    toast('Ошибка загрузки', true);
+  }
+}
+
+// ========================
+// ОБЩИЕ
+// ========================
+
+async function deleteItem(id) {
+  if (!confirm('Удалить запись?')) return;
+  await fetch(`${API}/${currentTab}/${id}`, {method:'DELETE'});
+  toast('Удалено');
+  currentId = null;
+  document.getElementById('form-panel').innerHTML = '<div class="empty-state">Выберите запись слева или создайте новую</div>';
+  await loadList();
+}
+
+function toast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr ? ' err' : '');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
