@@ -72,7 +72,13 @@ def resp(data):
     )
 
 def date_or_none(s):
-    return s if s and s.strip() else None
+    if not s or not s.strip():
+        return None
+    try:
+        from datetime import date
+        return date.fromisoformat(s.strip())
+    except Exception:
+        return None
 
 # ========================
 # ПОИСК

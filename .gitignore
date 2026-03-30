@@ -1,0 +1,6 @@
+media/
+*.pyc
+__pycache__/
+.env
+backup_*.sql
+venv/
