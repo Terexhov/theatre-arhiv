@@ -37,10 +37,26 @@
     .inv-title { font-size: 0.92rem; flex: 1; }
     .inv-count { font-size: 0.72rem; color: #aaa; font-family: sans-serif; }
 
+    /* Фильтр по годам */
+    .year-filter-bar { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 0.85rem; }
+    .year-chip {
+      font-size: 0.65rem; padding: 3px 8px; border: 1px solid #ccc;
+      cursor: pointer; color: #666; font-family: monospace; background: white;
+      transition: all 0.12s;
+    }
+    .year-chip:hover { border-color: #1a1a1a; color: #1a1a1a; }
+    .year-chip.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+
     /* Дела */
     .cases-panel { margin-bottom: 2rem; }
     .cases-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 0.75rem; font-family: sans-serif; }
     .case-list { display: flex; flex-direction: column; gap: 4px; }
+    .case-group-header {
+      font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+      color: #888; font-family: sans-serif; padding: 0.5rem 0 0.3rem;
+      border-bottom: 1px solid #e0ddd8; margin-bottom: 4px; margin-top: 0.5rem;
+    }
+    .case-group-header:first-child { margin-top: 0; }
     .case-link {
       display: flex; align-items: center; gap: 12px;
       padding: 0.6rem 1rem; background: white;
@@ -156,6 +172,7 @@
   <!-- Дела выбранной описи -->
   <div class="cases-panel" id="cases-panel" style="display:none">
     <div class="cases-header" id="cases-header"></div>
+    <div class="year-filter-bar" id="year-filter-bar" style="display:none"></div>
     <div class="case-list" id="case-list"></div>
   </div>
 
@@ -207,6 +224,8 @@
 const API = 'http://178.253.38.120/api';
 let debounceTimer;
 let activeInvId = null;
+let activeYear = null;
+let currentCases = [];
 
 const IMAGE_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.tiff'];
 const DOC_ICONS = { 'фотография':'🖼','афиша':'🎭','программка':'📋','видеозапись':'🎬','рецензия':'📝','текст пьесы':'📖','договор':'📑','интервью':'🎙','лекция':'📚','публикация':'📰','концепция':'💡','черновик':'✏️','переписка':'✉️','другое':'📄' };
@@ -240,6 +259,7 @@ async function selectInventory(invId, title) {
   document.querySelectorAll('.inv-link').forEach(el => el.classList.remove('active'));
   document.getElementById('inv-' + invId)?.classList.add('active');
   activeInvId = invId;
+  activeYear = null;
 
   const panel = document.getElementById('cases-panel');
   const header = document.getElementById('cases-header');
@@ -251,19 +271,73 @@ async function selectInventory(invId, title) {
 
   const r = await fetch(`${API}/archive/inventories/${invId}`);
   const data = await r.json();
-  const cases = data.cases || [];
+  currentCases = data.cases || [];
 
-  if (!cases.length) {
+  if (!currentCases.length) {
     list.innerHTML = '<div style="color:#aaa;font-size:0.85rem;font-family:sans-serif;padding:0.5rem 0">Нет дел</div>';
     return;
   }
 
-  list.innerHTML = cases.map(c => `
-    <div class="case-link" onclick="openCaseModal(${c.id})">
-      <span class="case-num">${c.number}</span>
-      <span class="case-title">${c.title}</span>
-      <span class="case-count">${c.units_count} ед.хр.</span>
-    </div>`).join('');
+  renderYearFilterBar(currentCases);
+  renderCaseList(currentCases);
+}
+
+function renderYearFilterBar(cases) {
+  const bar = document.getElementById('year-filter-bar');
+  const years = new Set();
+  cases.forEach(c => {
+    if (c.date_from) years.add(new Date(c.date_from).getFullYear());
+    if (c.date_to) years.add(new Date(c.date_to).getFullYear());
+  });
+  if (years.size < 2) { bar.style.display = 'none'; return; }
+  const sorted = Array.from(years).sort();
+  bar.style.display = 'flex';
+  bar.innerHTML = `<span class="year-chip ${activeYear===null?'active':''}" onclick="filterYear(null)">Все</span>` +
+    sorted.map(y => `<span class="year-chip ${activeYear===y?'active':''}" onclick="filterYear(${y})">${y}</span>`).join('');
+}
+
+function filterYear(year) {
+  activeYear = year;
+  renderYearFilterBar(currentCases);
+  renderCaseList(currentCases);
+}
+
+function renderCaseList(allCases) {
+  const list = document.getElementById('case-list');
+  let cases = allCases;
+  if (activeYear !== null) {
+    cases = allCases.filter(c => {
+      const from = c.date_from ? new Date(c.date_from).getFullYear() : null;
+      const to = c.date_to ? new Date(c.date_to).getFullYear() : null;
+      return from === activeYear || to === activeYear;
+    });
+  }
+  if (!cases.length) {
+    list.innerHTML = '<div style="color:#aaa;font-size:0.85rem;font-family:sans-serif;padding:0.5rem 0">Нет дел за выбранный год</div>';
+    return;
+  }
+
+  // Группировка по project_group
+  const groups = {};
+  cases.forEach(c => {
+    const g = c.project_group || '';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(c);
+  });
+
+  let html = '';
+  const keys = Object.keys(groups).sort((a,b) => a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, 'ru'));
+  keys.forEach(g => {
+    if (g) html += `<div class="case-group-header">${g}</div>`;
+    groups[g].forEach(c => {
+      html += `<div class="case-link" onclick="openCaseModal(${c.id})">
+        <span class="case-num">${c.number}</span>
+        <span class="case-title">${c.title}</span>
+        <span class="case-count">${c.units_count} ед.хр.</span>
+      </div>`;
+    });
+  });
+  list.innerHTML = html;
 }
 
 // ========================

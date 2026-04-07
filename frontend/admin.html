@@ -68,6 +68,43 @@
     .case-item:hover .case-item-del { opacity: 1; }
     .case-item-del:hover { color: #d00; }
 
+    /* Переключатель «на сайт» */
+    .site-toggle { cursor: pointer; display: flex; align-items: center; flex-shrink: 0; }
+    .site-toggle input { display: none; }
+    .site-toggle-dot {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 1.5px solid #ccc; background: white;
+      transition: all 0.15s; flex-shrink: 0;
+    }
+    .site-toggle input:checked + .site-toggle-dot {
+      background: #1a7a3a; border-color: #1a7a3a;
+    }
+
+    /* Фильтр по годам */
+    .year-filters { padding: 0.4rem 0.75rem; border-bottom: 1px solid #e0ddd8; display: flex; flex-wrap: wrap; gap: 4px; }
+    .year-chip {
+      font-size: 0.62rem; padding: 2px 6px; border: 1px solid #ddd;
+      cursor: pointer; color: #666; font-family: monospace;
+      background: white; transition: all 0.12s;
+    }
+    .year-chip:hover { border-color: #999; color: #1a1a1a; }
+    .year-chip.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+
+    /* Группа в деле */
+    .case-group-label {
+      font-size: 0.6rem; color: #aaa; font-family: monospace;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      max-width: 60px;
+    }
+
+    /* Заголовок группы в списке */
+    .group-header {
+      padding: 0.3rem 0.75rem 0.15rem;
+      font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: #aaa; font-family: sans-serif; background: #f9f8f6;
+      border-bottom: 1px solid #f0ede8;
+    }
+
     /* Новое дело */
     .new-case-form {
       padding: 0.6rem 0.75rem; border-top: 1px solid #e0ddd8;
@@ -173,11 +210,13 @@
       <span id="cases-inv-label">Дела</span>
       <button class="btn-sm" onclick="showNewItemForm()">+ Добавить</button>
     </div>
+    <div class="year-filters" id="year-filters" style="display:none"></div>
     <div class="cases-list" id="cases-list">
       <div class="empty-state">Выберите опись</div>
     </div>
     <div class="new-case-form">
-      <input id="new-case-input" placeholder="Новое дело…" onkeydown="if(event.key==='Enter')createCase()">
+      <input id="new-case-input" placeholder="Новое дело…" onkeydown="if(event.key==='Enter')createCase()" style="flex:1.5">
+      <input id="new-case-group" placeholder="Группа…" onkeydown="if(event.key==='Enter')createCase()" style="flex:1">
       <button class="btn" onclick="createCase()">+</button>
     </div>
   </div>
@@ -201,6 +240,7 @@ let allProductions = [];
 let docTypes = [];
 let casesByInv = {};
 let uploadFile = null;
+let activeYear = null;
 
 const IMAGE_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.tiff'];
 const DOC_ICONS = {'фотография':'🖼','афиша':'🎭','программка':'📋','видеозапись':'🎬','рецензия':'📝','текст пьесы':'📖','договор':'📑','интервью':'🎙','лекция':'📚','публикация':'📰','концепция':'💡','черновик':'✏️','переписка':'✉️','другое':'📄'};
@@ -236,6 +276,7 @@ function renderInvTabs() {
 async function selectInventory(invId) {
   currentInvId = invId;
   currentCaseId = null;
+  activeYear = null;
   document.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
   document.getElementById(`inv-tab-${invId}`)?.classList.add('active');
   const inv = allInventories.find(i => i.id === invId);
@@ -248,8 +289,8 @@ async function loadCases(invId) {
   const r = await fetch(`${API}/archive/inventories/${invId}`);
   const d = await r.json();
   casesByInv[invId] = d.cases || [];
+  renderYearFilters(casesByInv[invId]);
   renderCases(casesByInv[invId]);
-  // Обновляем счётчик в табе
   const tab = document.getElementById(`inv-tab-${invId}`);
   if (tab) {
     const countEl = tab.querySelector('.inv-count');
@@ -257,28 +298,85 @@ async function loadCases(invId) {
   }
 }
 
-function renderCases(cases) {
+function renderYearFilters(cases) {
+  const yf = document.getElementById('year-filters');
+  const years = new Set();
+  cases.forEach(c => {
+    if (c.date_from) years.add(new Date(c.date_from).getFullYear());
+    if (c.date_to) years.add(new Date(c.date_to).getFullYear());
+  });
+  if (years.size < 2) { yf.style.display = 'none'; yf.innerHTML = ''; return; }
+  const sorted = Array.from(years).sort();
+  yf.style.display = 'flex';
+  yf.innerHTML = `<span class="year-chip ${activeYear===null?'active':''}" onclick="filterYear(null)">Все</span>` +
+    sorted.map(y => `<span class="year-chip ${activeYear===y?'active':''}" onclick="filterYear(${y})">${y}</span>`).join('');
+}
+
+function filterYear(year) {
+  activeYear = year;
+  renderYearFilters(casesByInv[currentInvId] || []);
+  renderCases(casesByInv[currentInvId] || []);
+}
+
+function renderCases(allCases) {
   const list = document.getElementById('cases-list');
+  let cases = allCases;
+  if (activeYear !== null) {
+    cases = allCases.filter(c => {
+      const from = c.date_from ? new Date(c.date_from).getFullYear() : null;
+      const to = c.date_to ? new Date(c.date_to).getFullYear() : null;
+      return from === activeYear || to === activeYear;
+    });
+  }
   if (!cases.length) { list.innerHTML = '<div class="empty-state">Нет дел</div>'; return; }
-  list.innerHTML = cases.map(c => `
-    <div class="case-item ${c.id===currentCaseId?'active':''}" onclick="selectCase(${c.id})">
-      <div class="case-item-title">${c.title}</div>
-      <span class="case-item-count">${c.units_count}</span>
-      ${c.units_count === 0 ? `<button class="case-item-del" onclick="event.stopPropagation();deleteCase(${c.id})" title="Удалить пустое дело">✕</button>` : ''}
-    </div>`).join('');
+
+  // Группировка по project_group
+  const groups = {};
+  cases.forEach(c => {
+    const g = c.project_group || '';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(c);
+  });
+
+  let html = '';
+  const keys = Object.keys(groups).sort((a,b) => a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, 'ru'));
+  keys.forEach(g => {
+    if (g) html += `<div class="group-header">${g}</div>`;
+    groups[g].forEach(c => {
+      html += `
+        <div class="case-item ${c.id===currentCaseId?'active':''}" onclick="selectCase(${c.id})">
+          <div class="case-item-title">${c.title}</div>
+          <span class="case-item-count">${c.units_count}</span>
+          <label class="site-toggle" title="Показывать на сайте" onclick="event.stopPropagation()">
+            <input type="checkbox" ${c.show_on_site?'checked':''} onchange="toggleShowOnSite(${c.id},this.checked)">
+            <span class="site-toggle-dot"></span>
+          </label>
+          ${c.units_count === 0 ? `<button class="case-item-del" onclick="event.stopPropagation();deleteCase(${c.id})" title="Удалить пустое дело">✕</button>` : ''}
+        </div>`;
+    });
+  });
+  list.innerHTML = html;
+}
+
+async function toggleShowOnSite(caseId, show) {
+  await fetch(`${API}/archive/cases/${caseId}/show-on-site?show=${show}`, {method:'PATCH'});
+  toast(show ? 'Добавлено на сайт' : 'Убрано с сайта');
 }
 
 async function createCase() {
   const input = document.getElementById('new-case-input');
+  const groupInput = document.getElementById('new-case-group');
   const title = input.value.trim();
+  const project_group = groupInput ? groupInput.value.trim() || null : null;
   if (!title || !currentInvId) { toast('Введите название и выберите опись', true); return; }
   const r = await fetch(`${API}/archive/cases`, {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ inventory_id: currentInvId, title })
+    body: JSON.stringify({ inventory_id: currentInvId, title, project_group })
   });
   const data = await r.json();
   toast('Дело создано');
   input.value = '';
+  if (groupInput) groupInput.value = '';
   delete casesByInv[currentInvId];
   await loadCases(currentInvId);
   // Обновляем описи

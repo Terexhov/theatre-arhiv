@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Эдуард Бояков</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%231a1a1a'/><text x='16' y='23' text-anchor='middle' font-family='Georgia,serif' font-size='20' fill='%23f9f7f4'>Б</text></svg>">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, serif; background: #f9f7f4; color: #1a1a1a; min-height: 100vh; }
+
+    /* Шапка */
+    .hero {
+      background: #1a1a1a; color: #f9f7f4;
+      padding: 4rem 2rem 3rem;
+      max-width: 100%;
+    }
+    .hero-inner { max-width: 800px; margin: 0 auto; }
+    .hero h1 {
+      font-size: 2.4rem; font-weight: normal;
+      letter-spacing: 0.03em; line-height: 1.15;
+      margin-bottom: 0.6rem;
+    }
+    .hero-sub {
+      font-size: 0.82rem; opacity: 0.4;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      font-family: sans-serif; margin-bottom: 2rem;
+    }
+    .hero-desc {
+      font-size: 1rem; line-height: 1.7; opacity: 0.7;
+      max-width: 520px;
+    }
+
+    /* Навигация */
+    .site-nav {
+      background: #1a1a1a; border-top: 1px solid rgba(255,255,255,0.08);
+      position: sticky; top: 0; z-index: 50;
+    }
+    .site-nav-inner {
+      max-width: 800px; margin: 0 auto;
+      display: flex; gap: 0; overflow-x: auto;
+    }
+    .nav-tab {
+      padding: 0.8rem 1.2rem; font-size: 0.75rem;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      color: rgba(255,255,255,0.4); cursor: pointer;
+      border-bottom: 2px solid transparent;
+      white-space: nowrap; font-family: sans-serif;
+      transition: color 0.15s;
+    }
+    .nav-tab:hover { color: rgba(255,255,255,0.75); }
+    .nav-tab.active { color: #f9f7f4; border-bottom-color: #f9f7f4; }
+
+    /* Контент */
+    .content { max-width: 800px; margin: 0 auto; padding: 2.5rem 2rem 4rem; }
+
+    /* Секции */
+    .section { display: none; }
+    .section.visible { display: block; }
+
+    /* Фильтр по годам */
+    .filter-bar { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 2rem; }
+    .year-chip {
+      font-size: 0.65rem; padding: 4px 10px;
+      border: 1px solid #ccc; cursor: pointer;
+      color: #888; font-family: monospace; background: white;
+      transition: all 0.12s;
+    }
+    .year-chip:hover { border-color: #1a1a1a; color: #1a1a1a; }
+    .year-chip.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+
+    /* Группа (МХАТ, Сцена Молот…) */
+    .group-block { margin-bottom: 2.5rem; }
+    .group-title {
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.12em;
+      color: #888; font-family: sans-serif;
+      padding-bottom: 0.5rem; margin-bottom: 1rem;
+      border-bottom: 1px solid #e0ddd8;
+    }
+
+    /* Карточка дела */
+    .case-card {
+      display: flex; gap: 1.5rem; align-items: flex-start;
+      padding: 1.1rem 0; border-bottom: 1px solid #edeae5;
+      cursor: pointer; transition: opacity 0.15s;
+    }
+    .case-card:hover { opacity: 0.7; }
+    .case-card:last-child { border-bottom: none; }
+    .case-year {
+      font-size: 0.75rem; font-family: monospace; color: #aaa;
+      min-width: 38px; padding-top: 0.15rem; flex-shrink: 0;
+    }
+    .case-body { flex: 1; min-width: 0; }
+    .case-title { font-size: 1.05rem; line-height: 1.35; margin-bottom: 0.3rem; }
+    .case-desc { font-size: 0.82rem; color: #666; line-height: 1.6; font-family: sans-serif; }
+    .case-meta { font-size: 0.68rem; color: #aaa; font-family: sans-serif; margin-top: 0.35rem; }
+
+    /* Пустое состояние */
+    .empty { color: #aaa; font-size: 0.9rem; font-family: sans-serif; padding: 2rem 0; }
+
+    /* Детальная панель */
+    .detail-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.4); z-index: 200;
+    }
+    .detail-overlay.open { display: block; }
+    .detail-panel {
+      position: fixed; right: 0; top: 0; bottom: 0;
+      width: 480px; max-width: 100vw;
+      background: white; overflow-y: auto;
+      box-shadow: -4px 0 30px rgba(0,0,0,0.12);
+      z-index: 201; transform: translateX(100%);
+      transition: transform 0.25s ease;
+    }
+    .detail-panel.open { transform: translateX(0); }
+    .detail-close {
+      position: sticky; top: 0; display: flex;
+      justify-content: flex-end; padding: 0.75rem 1rem;
+      background: white; border-bottom: 1px solid #f0ede8; z-index: 1;
+    }
+    .detail-close button {
+      background: none; border: none; font-size: 1.1rem;
+      cursor: pointer; color: #888;
+    }
+    .detail-body { padding: 1.5rem 1.75rem 2.5rem; }
+    .detail-body h2 { font-size: 1.3rem; font-weight: normal; margin-bottom: 1rem; line-height: 1.3; }
+    .dl { margin-bottom: 0.75rem; }
+    .dl dt { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; font-family: sans-serif; margin-bottom: 0.2rem; }
+    .dl dd { font-size: 0.9rem; line-height: 1.6; }
+    .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 5px; margin-top: 0.5rem; }
+    .doc-thumb { border: 1px solid #e0ddd8; overflow: hidden; cursor: pointer; transition: border-color 0.12s; }
+    .doc-thumb:hover { border-color: #1a1a1a; }
+    .doc-thumb img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .doc-icon-box { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 1.4rem; background: #f5f3f0; }
+    .doc-cap { padding: 2px 4px; font-size: 0.58rem; font-family: sans-serif; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .section-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; font-family: sans-serif; margin: 1.25rem 0 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid #e0ddd8; }
+
+    /* Лайтбокс */
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 400; align-items: center; justify-content: center; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 92vw; max-height: 92vh; object-fit: contain; }
+    .lightbox-close { position: absolute; top: 1rem; right: 1.5rem; background: none; border: none; color: white; font-size: 1.4rem; cursor: pointer; opacity: 0.6; }
+
+    /* Ссылка на архив */
+    .archive-link {
+      display: inline-block; margin-top: 0.75rem;
+      font-size: 0.75rem; font-family: sans-serif; color: #aaa;
+      border-bottom: 1px solid #ddd; text-decoration: none;
+    }
+    .archive-link:hover { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+
+    @media (max-width: 600px) {
+      .hero h1 { font-size: 1.7rem; }
+      .detail-panel { width: 100vw; }
+      .content { padding: 1.5rem 1rem 3rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-inner">
+    <h1>Эдуард Бояков</h1>
+    <div class="hero-sub">Режиссёр · Театральный деятель</div>
+    <div class="hero-desc">Личный архив — избранные проекты, спектакли и материалы.</div>
+  </div>
+</div>
+
+<nav class="site-nav">
+  <div class="site-nav-inner" id="nav-tabs"></div>
+</nav>
+
+<div class="content" id="content">
+  <div class="empty">Загрузка…</div>
+</div>
+
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail()"></div>
+<div class="detail-panel" id="detail-panel">
+  <div class="detail-close"><button onclick="closeDetail()">✕</button></div>
+  <div class="detail-body" id="detail-body"></div>
+</div>
+
+<div class="lightbox" id="lightbox" onclick="document.getElementById('lightbox').classList.remove('open')">
+  <button class="lightbox-close">✕</button>
+  <img id="lightbox-img" src="" alt="">
+</div>
+
+<script>
+const API = 'http://178.253.38.120/api';
+const IMAGE_EXTS = ['.jpg','.jpeg','.png','.gif','.webp'];
+const DOC_ICONS = {'фотография':'🖼','афиша':'🎭','программка':'📋','видеозапись':'🎬','рецензия':'📝','текст пьесы':'📖','договор':'📑','интервью':'🎙','лекция':'📚','публикация':'📰','концепция':'💡','черновик':'✏️','переписка':'✉️','другое':'📄'};
+
+function isImage(p) { return p && IMAGE_EXTS.some(e => p.toLowerCase().endsWith(e)); }
+function getYear(d) { return d ? new Date(d).getFullYear() : null; }
+function formatDate(s) {
+  if (!s) return '';
+  try { return new Date(s).toLocaleDateString('ru-RU', {year:'numeric',month:'long'}); }
+  catch(e) { return s; }
+}
+
+let allData = [];         // все дела с show_on_site=true
+let sections = [];        // [{invId, invTitle, invNum, cases}]
+let activeSection = 0;    // индекс секции
+let activeYear = null;
+
+async function init() {
+  const rows = await fetch(`${API}/site/data`).then(r => r.json());
+  allData = rows;
+
+  // Группируем по описям
+  const invMap = {};
+  rows.forEach(c => {
+    if (!invMap[c.inventory_id]) {
+      invMap[c.inventory_id] = {
+        invId: c.inventory_id,
+        invTitle: c.inventory_title,
+        invNum: parseInt(c.inventory_number),
+        cases: []
+      };
+    }
+    invMap[c.inventory_id].cases.push(c);
+  });
+
+  sections = Object.values(invMap).sort((a,b) => a.invNum - b.invNum);
+
+  if (!sections.length) {
+    document.getElementById('content').innerHTML = '<div class="empty">Нет материалов для отображения.</div>';
+    return;
+  }
+
+  renderNavTabs();
+  showSection(0);
+}
+
+function renderNavTabs() {
+  document.getElementById('nav-tabs').innerHTML = sections.map((s, i) => `
+    <div class="nav-tab ${i===activeSection?'active':''}" id="nav-${i}" onclick="showSection(${i})">
+      ${s.invTitle}
+    </div>`).join('');
+}
+
+function showSection(idx) {
+  activeSection = idx;
+  activeYear = null;
+  document.querySelectorAll('.nav-tab').forEach((t,i) => t.classList.toggle('active', i===idx));
+  renderSection(sections[idx]);
+}
+
+function renderSection(sec) {
+  const cases = sec.cases;
+
+  // Собираем годы
+  const yearSet = new Set();
+  cases.forEach(c => {
+    if (c.date_from) yearSet.add(getYear(c.date_from));
+    if (c.date_to) yearSet.add(getYear(c.date_to));
+  });
+  const years = Array.from(yearSet).filter(Boolean).sort();
+
+  let html = '';
+
+  // Фильтр по годам
+  if (years.length > 1) {
+    html += `<div class="filter-bar">
+      <span class="year-chip ${activeYear===null?'active':''}" onclick="filterYear(null)">Все</span>
+      ${years.map(y=>`<span class="year-chip ${activeYear===y?'active':''}" onclick="filterYear(${y})">${y}</span>`).join('')}
+    </div>`;
+  }
+
+  html += renderGroups(cases);
+  document.getElementById('content').innerHTML = html;
+}
+
+function filterYear(year) {
+  activeYear = year;
+  renderSection(sections[activeSection]);
+  // Восстанавливаем обработчики — DOM перерисован, поэтому вызываем снова
+}
+
+function renderGroups(allCases) {
+  let cases = allCases;
+  if (activeYear !== null) {
+    cases = allCases.filter(c => {
+      const from = getYear(c.date_from);
+      const to = getYear(c.date_to);
+      return from === activeYear || to === activeYear;
+    });
+  }
+  if (!cases.length) return '<div class="empty">Нет материалов за выбранный период.</div>';
+
+  // Группируем по project_group
+  const groups = {};
+  cases.forEach(c => {
+    const g = c.project_group || '';
+    if (!groups[g]) groups[g] = [];
+    groups[g].push(c);
+  });
+
+  let html = '';
+  const keys = Object.keys(groups).sort((a,b) => a===''?1:b===''?-1:a.localeCompare(b,'ru'));
+  keys.forEach(g => {
+    html += `<div class="group-block">`;
+    if (g) html += `<div class="group-title">${g}</div>`;
+    groups[g].forEach(c => {
+      const year = getYear(c.date_from) || getYear(c.date_to) || '';
+      html += `
+        <div class="case-card" onclick="openDetail(${c.id})">
+          <div class="case-year">${year}</div>
+          <div class="case-body">
+            <div class="case-title">${c.title}</div>
+            ${c.description ? `<div class="case-desc">${c.description}</div>` : ''}
+          </div>
+        </div>`;
+    });
+    html += `</div>`;
+  });
+  return html;
+}
+
+async function openDetail(caseId) {
+  const panel = document.getElementById('detail-panel');
+  const body = document.getElementById('detail-body');
+  document.getElementById('detail-overlay').classList.add('open');
+  panel.classList.add('open');
+  body.innerHTML = '<p style="color:#aaa;font-size:0.85rem;font-family:sans-serif">Загрузка…</p>';
+
+  const r = await fetch(`${API}/archive/cases/${caseId}`);
+  const d = await r.json();
+  const c = d.case;
+  const units = d.units || [];
+
+  const photos = units.filter(u => isImage(u.file_path));
+  const docs = units.filter(u => u.doc_id && !isImage(u.file_path));
+
+  let html = `<h2>${c.title}</h2>`;
+  if (c.description) html += `<p style="font-size:0.9rem;color:#555;line-height:1.65;margin-bottom:1rem">${c.description}</p>`;
+
+  const dateStr = [c.date_from?formatDate(c.date_from):null, c.date_to?formatDate(c.date_to):null].filter(Boolean).join(' — ');
+  if (dateStr) html += `<div class="dl"><dt>Период</dt><dd>${dateStr}</dd></div>`;
+
+  if (photos.length) {
+    html += `<div class="section-label">Фотографии (${photos.length})</div>
+      <div class="doc-grid">`;
+    photos.forEach(u => {
+      html += `<div class="doc-thumb" onclick="openLightbox('${u.url}')">
+        <img src="${u.url}" alt="${u.doc_title||''}" loading="lazy">
+        <div class="doc-cap">${u.doc_title||u.title||''}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (docs.length) {
+    html += `<div class="section-label">Документы (${docs.length})</div>`;
+    docs.forEach(u => {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:0.4rem 0.65rem;border:1px solid #e0ddd8;background:white;margin-bottom:3px;font-size:0.82rem">
+        <span>${DOC_ICONS[u.doc_type]||'📄'}</span>
+        <span style="flex:1">${u.doc_title||u.title||'—'}</span>
+        <span style="font-size:0.68rem;color:#aaa;font-family:sans-serif">${u.doc_type||''}</span>
+      </div>`;
+    });
+  }
+
+  html += `<a class="archive-link" href="index.html" target="_blank">→ Полный архив</a>`;
+  body.innerHTML = html;
+}
+
+function closeDetail() {
+  document.getElementById('detail-overlay').classList.remove('open');
+  document.getElementById('detail-panel').classList.remove('open');
+}
+
+function openLightbox(url) {
+  document.getElementById('lightbox-img').src = url;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeDetail();
+    document.getElementById('lightbox').classList.remove('open');
+  }
+});
+
+init();
+</script>
+</body>
+</html>

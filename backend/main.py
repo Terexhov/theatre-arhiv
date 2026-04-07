@@ -204,6 +204,7 @@ class CaseIn(BaseModel):
     description: Optional[str] = None
     date_from: Optional[str] = None
     date_to: Optional[str] = None
+    project_group: Optional[str] = None
 
 @app.post("/archive/cases", tags=["archive"], summary="Создать дело")
 async def create_case(c: CaseIn):
@@ -214,10 +215,10 @@ async def create_case(c: CaseIn):
                 "SELECT COUNT(*) FROM cases WHERE inventory_id=$1", c.inventory_id)
             c.number = str(row_count + 1)
         row = await db.fetchrow("""
-            INSERT INTO cases (inventory_id, number, title, description, date_from, date_to)
-            VALUES ($1,$2,$3,$4,$5,$6) RETURNING id
+            INSERT INTO cases (inventory_id, number, title, description, date_from, date_to, project_group)
+            VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id
         """, c.inventory_id, c.number, c.title, c.description,
-            date_or_none(c.date_from), date_or_none(c.date_to))
+            date_or_none(c.date_from), date_or_none(c.date_to), c.project_group)
         return resp({"id": row["id"], "status": "ok"})
     finally:
         await db.close()
@@ -227,10 +228,40 @@ async def update_case(case_id: int, c: CaseIn):
     db = await get_db()
     try:
         await db.execute("""
-            UPDATE cases SET title=$1, description=$2, date_from=$3, date_to=$4
-            WHERE id=$5
-        """, c.title, c.description, date_or_none(c.date_from), date_or_none(c.date_to), case_id)
+            UPDATE cases SET title=$1, description=$2, date_from=$3, date_to=$4, project_group=$5
+            WHERE id=$6
+        """, c.title, c.description, date_or_none(c.date_from), date_or_none(c.date_to),
+            c.project_group, case_id)
         return resp({"status": "ok"})
+    finally:
+        await db.close()
+
+@app.patch("/archive/cases/{case_id}/show-on-site", tags=["archive"], summary="Переключить показ на сайте")
+async def toggle_show_on_site(case_id: int, show: bool = Query(...)):
+    db = await get_db()
+    try:
+        await db.execute("UPDATE cases SET show_on_site=$1 WHERE id=$2", show, case_id)
+        return resp({"status": "ok"})
+    finally:
+        await db.close()
+
+@app.get("/site/data", tags=["archive"], summary="Данные публичного сайта")
+async def get_site_data():
+    db = await get_db()
+    try:
+        rows = await db.fetch("""
+            SELECT c.id, c.title, c.description, c.date_from, c.date_to,
+                   c.project_group, c.number,
+                   i.id as inventory_id, i.title as inventory_title, i.number as inventory_number,
+                   f.code as fund_code, f.name as fund_name,
+                   (SELECT COUNT(*) FROM archive_units au WHERE au.case_id = c.id) as units_count
+            FROM cases c
+            JOIN inventories i ON i.id = c.inventory_id
+            JOIN funds f ON f.id = i.fund_id
+            WHERE c.show_on_site = true
+            ORDER BY i.number::INT, c.project_group NULLS LAST, c.date_from NULLS LAST, c.title
+        """)
+        return resp([dict(r) for r in rows])
     finally:
         await db.close()
 
