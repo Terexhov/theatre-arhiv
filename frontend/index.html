@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Личный архив Эдуарда Боякова</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Georgia, serif; background: #f9f7f4; color: #1a1a1a; min-height: 100vh; }
+
+    header { background: #1a1a1a; color: #f9f7f4; padding: 2rem 2rem 1.75rem; }
+    header h1 { font-size: 1.6rem; font-weight: normal; letter-spacing: 0.04em; }
+    header p { font-size: 0.82rem; opacity: 0.45; margin-top: 0.3rem; letter-spacing: 0.05em; text-transform: uppercase; }
+
+    .main { max-width: 860px; padding: 2rem; }
+
+    /* Поиск */
+    .search-box { display: flex; border: 1px solid #1a1a1a; background: white; margin-bottom: 0.5rem; }
+    .search-box input { flex: 1; border: none; outline: none; padding: 0.85rem 1rem; font-size: 1.05rem; font-family: Georgia, serif; }
+    .search-box button { border: none; background: #1a1a1a; color: white; padding: 0 1.5rem; font-size: 0.88rem; cursor: pointer; letter-spacing: 0.04em; }
+    .search-box button:hover { background: #333; }
+    #hint { font-size: 0.78rem; color: #888; margin-bottom: 1.5rem; }
+
+    /* Навигация по описям */
+    .nav-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 0.75rem; font-family: sans-serif; }
+    .inv-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 2rem; }
+    .inv-link {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0.7rem 1rem; background: white;
+      border: 1px solid #e0ddd8; cursor: pointer;
+      transition: border-color 0.15s; text-decoration: none; color: #1a1a1a;
+    }
+    .inv-link:hover { border-color: #1a1a1a; }
+    .inv-link.active { border-color: #1a1a1a; background: #f5f3f0; }
+    .inv-num { font-size: 0.72rem; font-family: monospace; color: #888; min-width: 28px; }
+    .inv-title { font-size: 0.92rem; flex: 1; }
+    .inv-count { font-size: 0.72rem; color: #aaa; font-family: sans-serif; }
+
+    /* Дела */
+    .cases-panel { margin-bottom: 2rem; }
+    .cases-header { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-bottom: 0.75rem; font-family: sans-serif; }
+    .case-list { display: flex; flex-direction: column; gap: 4px; }
+    .case-link {
+      display: flex; align-items: center; gap: 12px;
+      padding: 0.6rem 1rem; background: white;
+      border: 1px solid #e0ddd8; cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .case-link:hover { border-color: #1a1a1a; }
+    .case-num { font-size: 0.7rem; font-family: monospace; color: #aaa; min-width: 20px; }
+    .case-title { font-size: 0.88rem; flex: 1; }
+    .case-count { font-size: 0.7rem; color: #aaa; font-family: sans-serif; }
+
+    /* Результаты поиска */
+    .results { margin-bottom: 2rem; }
+    .group-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin: 1.25rem 0 0.6rem; padding-bottom: 0.35rem; border-bottom: 1px solid #e0ddd8; font-family: sans-serif; }
+    .card { background: white; border: 1px solid #e0ddd8; padding: 0.9rem 1.1rem; margin-bottom: 4px; cursor: pointer; transition: border-color 0.15s; }
+    .card:hover { border-color: #1a1a1a; }
+    .card-title { font-size: 0.95rem; }
+    .card-meta { font-size: 0.75rem; color: #888; margin-top: 0.2rem; font-family: sans-serif; }
+    .badge { display: inline-block; font-size: 0.65rem; padding: 0.1rem 0.45rem; border: 1px solid #ccc; color: #666; font-family: sans-serif; margin-right: 0.35rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    .empty { color: #aaa; font-size: 0.88rem; padding: 1rem 0; font-family: sans-serif; }
+
+    /* Боковая панель */
+    .detail { display: none; position: fixed; top: 0; right: 0; width: 500px; height: 100vh; background: white; border-left: 1px solid #e0ddd8; overflow-y: auto; z-index: 100; }
+    .detail.open { display: block; }
+    .detail-close { position: sticky; top: 0; display: flex; justify-content: flex-end; padding: 0.65rem 1rem; background: white; border-bottom: 1px solid #f0ede8; z-index: 1; }
+    .detail-close button { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #888; }
+    .detail-body { padding: 1.25rem 1.5rem 2rem; }
+    .detail h2 { font-size: 1.2rem; font-weight: normal; margin-bottom: 0.9rem; padding-bottom: 0.65rem; border-bottom: 1px solid #e0ddd8; }
+    .dl { margin-bottom: 0.85rem; }
+    .dl dt { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; font-family: sans-serif; margin-bottom: 0.2rem; }
+    .dl dd { font-size: 0.92rem; line-height: 1.6; }
+    .section-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; font-family: sans-serif; margin: 1.1rem 0 0.45rem; padding-bottom: 0.3rem; border-bottom: 1px solid #e0ddd8; }
+    .person-avatar { width: 80px; height: 80px; object-fit: cover; border: 1px solid #e0ddd8; margin-bottom: 0.9rem; display: block; }
+    .person-link { border-bottom: 1px solid #ccc; cursor: pointer; font-size: 0.85rem; margin-right: 0.35rem; }
+    .person-link:hover { border-bottom-color: #1a1a1a; }
+
+    .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 5px; margin-top: 0.4rem; }
+    .doc-thumb { cursor: pointer; border: 1px solid #e0ddd8; overflow: hidden; position: relative; background: #f9f7f4; transition: border-color 0.15s; }
+    .doc-thumb:hover { border-color: #1a1a1a; }
+    .doc-thumb img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .doc-thumb .doc-icon-box { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
+    .doc-thumb .doc-cap { padding: 2px 4px; font-size: 0.6rem; font-family: sans-serif; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid #f0ede8; }
+    .doc-thumb .type-badge { position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.55); color: white; font-size: 0.55rem; font-family: sans-serif; padding: 1px 3px; }
+    .doc-row { display: flex; align-items: center; gap: 8px; padding: 0.45rem 0.65rem; border: 1px solid #e0ddd8; background: white; margin-bottom: 3px; cursor: pointer; transition: border-color 0.15s; }
+    .doc-row:hover { border-color: #1a1a1a; }
+
+    /* Модал документа */
+    .doc-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 200; align-items: center; justify-content: center; }
+    .doc-modal-overlay.open { display: flex; }
+    .doc-modal { background: white; width: 740px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.3); }
+    .doc-modal-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 1rem 1.3rem; border-bottom: 1px solid #e0ddd8; gap: 1rem; flex-shrink: 0; }
+    .doc-modal-header h3 { font-size: 1rem; font-weight: normal; flex: 1; font-family: Georgia, serif; line-height: 1.4; }
+    .doc-modal-header button { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #888; flex-shrink: 0; }
+    .doc-modal-body { display: flex; flex: 1; overflow: hidden; min-height: 200px; }
+    .doc-modal-media { width: 280px; flex-shrink: 0; background: #111; display: flex; align-items: center; justify-content: center; }
+    .doc-modal-media img { width: 100%; height: 100%; object-fit: contain; display: block; cursor: zoom-in; max-height: 65vh; }
+    .doc-modal-media .no-preview { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; color: rgba(255,255,255,0.3); }
+    .doc-modal-media .no-preview .big-icon { font-size: 3rem; }
+    .doc-modal-media .no-preview span { font-size: 0.75rem; font-family: sans-serif; }
+    .doc-modal-info { flex: 1; padding: 1.1rem 1.3rem; overflow-y: auto; }
+    .doc-modal-footer { padding: 0.75rem 1.3rem; border-top: 1px solid #e0ddd8; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; gap: 1rem; }
+    .archive-ref { font-family: monospace; background: #f0ede8; padding: 0.25rem 0.6rem; color: #444; font-size: 0.78rem; }
+    .btn-file { background: #1a1a1a; color: white; border: none; padding: 0.35rem 0.9rem; font-size: 0.78rem; cursor: pointer; text-decoration: none; font-family: sans-serif; }
+    .btn-file:hover { background: #333; }
+
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.2); z-index: 99; }
+    .overlay.open { display: block; }
+
+    /* Лайтбокс */
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 400; align-items: center; justify-content: center; flex-direction: column; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 92vw; max-height: 88vh; object-fit: contain; cursor: zoom-out; }
+    .lightbox-close { position: absolute; top: 1rem; right: 1.5rem; background: none; border: none; color: white; font-size: 1.4rem; cursor: pointer; opacity: 0.6; }
+    .lightbox-close:hover { opacity: 1; }
+    .lightbox-meta { color: rgba(255,255,255,0.5); font-size: 0.78rem; font-family: sans-serif; margin-top: 0.65rem; text-align: center; }
+
+    /* Модал дела */
+    .case-modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 200; align-items: center; justify-content: center; }
+    .case-modal-overlay.open { display: flex; }
+    .case-modal { background: white; width: 700px; max-width: 95vw; max-height: 88vh; display: flex; flex-direction: column; box-shadow: 0 8px 40px rgba(0,0,0,0.3); overflow: hidden; }
+    .case-modal-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 1rem 1.3rem; border-bottom: 1px solid #e0ddd8; gap: 1rem; flex-shrink: 0; }
+    .case-modal-header h3 { font-size: 1rem; font-weight: normal; flex: 1; }
+    .case-modal-header button { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #888; }
+    .case-modal-body { padding: 1.1rem 1.3rem; overflow-y: auto; flex: 1; }
+    .case-ref { font-family: monospace; font-size: 0.75rem; color: #888; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Личный архив Эдуарда Боякова</h1>
+  <p>Фонд Ф-1 · Личный архив режиссёра и театрального деятеля</p>
+</header>
+
+<div class="main">
+
+  <!-- Поиск -->
+  <div class="search-box">
+    <input type="text" id="q" placeholder="Поиск по архиву…" autocomplete="off">
+    <button onclick="doSearch()">Найти</button>
+  </div>
+  <div id="hint"></div>
+
+  <!-- Результаты поиска -->
+  <div class="results" id="results"></div>
+
+  <!-- Описи -->
+  <div class="nav-title">Описи фонда</div>
+  <div class="inv-list" id="inv-list">
+    <div style="color:#aaa;font-size:0.85rem;font-family:sans-serif">Загрузка…</div>
+  </div>
+
+  <!-- Дела выбранной описи -->
+  <div class="cases-panel" id="cases-panel" style="display:none">
+    <div class="cases-header" id="cases-header"></div>
+    <div class="case-list" id="case-list"></div>
+  </div>
+
+</div>
+
+<div class="overlay" id="overlay" onclick="closeDetail()"></div>
+<div class="detail" id="detail">
+  <div class="detail-close"><button onclick="closeDetail()">✕</button></div>
+  <div class="detail-body" id="detail-content"></div>
+</div>
+
+<!-- Модал документа -->
+<div class="doc-modal-overlay" id="doc-modal-overlay">
+  <div class="doc-modal">
+    <div class="doc-modal-header">
+      <h3 id="dm-title">Загрузка…</h3>
+      <button onclick="closeDocModal()">✕</button>
+    </div>
+    <div class="doc-modal-body">
+      <div class="doc-modal-media" id="dm-media"></div>
+      <div class="doc-modal-info" id="dm-info"></div>
+    </div>
+    <div class="doc-modal-footer">
+      <code class="archive-ref" id="dm-ref"></code>
+      <a class="btn-file" id="dm-open" href="#" target="_blank">Открыть файл ↗</a>
+    </div>
+  </div>
+</div>
+
+<!-- Модал дела -->
+<div class="case-modal-overlay" id="case-modal-overlay">
+  <div class="case-modal">
+    <div class="case-modal-header">
+      <h3 id="cm-title"></h3>
+      <button onclick="closeCaseModal()">✕</button>
+    </div>
+    <div class="case-modal-body" id="cm-body"></div>
+  </div>
+</div>
+
+<!-- Лайтбокс -->
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+  <button class="lightbox-close">✕</button>
+  <img id="lightbox-img" src="" alt="">
+  <div class="lightbox-meta" id="lightbox-meta"></div>
+</div>
+
+<script>
+const API = 'http://178.253.38.120/api';
+let debounceTimer;
+let activeInvId = null;
+
+const IMAGE_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.tiff'];
+const DOC_ICONS = { 'фотография':'🖼','афиша':'🎭','программка':'📋','видеозапись':'🎬','рецензия':'📝','текст пьесы':'📖','договор':'📑','интервью':'🎙','лекция':'📚','публикация':'📰','концепция':'💡','черновик':'✏️','переписка':'✉️','другое':'📄' };
+const LABELS = { person:'Персоны', production:'Спектакли', document:'Документы' };
+const TYPE_RU = { person:'Персона', production:'Спектакль', document:'Документ' };
+
+function isImage(p) { return p && IMAGE_EXTS.some(e => p.toLowerCase().endsWith(e)); }
+function formatDate(s) {
+  if (!s) return '';
+  try { return new Date(s).toLocaleDateString('ru-RU',{day:'numeric',month:'long',year:'numeric'}); }
+  catch(e) { return s; }
+}
+
+// ========================
+// ИНИЦИАЛИЗАЦИЯ
+// ========================
+
+async function init() {
+  const r = await fetch(`${API}/archive/inventories`);
+  const inventories = await r.json();
+  const list = document.getElementById('inv-list');
+  list.innerHTML = inventories.map(inv => `
+    <div class="inv-link" id="inv-${inv.id}" onclick="selectInventory(${inv.id}, '${inv.title.replace(/'/g,"\\'")}')">
+      <span class="inv-num">Оп.${inv.number}</span>
+      <span class="inv-title">${inv.title}</span>
+      <span class="inv-count">${inv.cases_count} дел</span>
+    </div>`).join('');
+}
+
+async function selectInventory(invId, title) {
+  document.querySelectorAll('.inv-link').forEach(el => el.classList.remove('active'));
+  document.getElementById('inv-' + invId)?.classList.add('active');
+  activeInvId = invId;
+
+  const panel = document.getElementById('cases-panel');
+  const header = document.getElementById('cases-header');
+  const list = document.getElementById('case-list');
+
+  panel.style.display = 'block';
+  header.textContent = title + ' — дела';
+  list.innerHTML = '<div style="color:#aaa;font-size:0.85rem;font-family:sans-serif;padding:0.5rem 0">Загрузка…</div>';
+
+  const r = await fetch(`${API}/archive/inventories/${invId}`);
+  const data = await r.json();
+  const cases = data.cases || [];
+
+  if (!cases.length) {
+    list.innerHTML = '<div style="color:#aaa;font-size:0.85rem;font-family:sans-serif;padding:0.5rem 0">Нет дел</div>';
+    return;
+  }
+
+  list.innerHTML = cases.map(c => `
+    <div class="case-link" onclick="openCaseModal(${c.id})">
+      <span class="case-num">${c.number}</span>
+      <span class="case-title">${c.title}</span>
+      <span class="case-count">${c.units_count} ед.хр.</span>
+    </div>`).join('');
+}
+
+// ========================
+// МОДАЛ ДЕЛА
+// ========================
+
+async function openCaseModal(caseId) {
+  document.getElementById('case-modal-overlay').classList.add('open');
+  document.getElementById('cm-title').textContent = 'Загрузка…';
+  document.getElementById('cm-body').innerHTML = '';
+
+  const r = await fetch(`${API}/archive/cases/${caseId}`);
+  const data = await r.json();
+  const c = data.case;
+  const units = data.units || [];
+
+  document.getElementById('cm-title').textContent = c.title;
+
+  const ref = `${c.fund_code} Оп.${c.inv_number} Д.${c.number}`;
+
+  let html = `<div class="case-ref">${ref} · ${c.inv_title}</div>`;
+  if (c.description) html += `<p style="font-size:0.88rem;margin-bottom:1rem;line-height:1.6;color:#555">${c.description}</p>`;
+
+  if (!units.length) {
+    html += '<p style="color:#aaa;font-size:0.85rem;font-family:sans-serif">Нет единиц хранения</p>';
+  } else {
+    html += `<div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:#888;font-family:sans-serif;margin-bottom:0.5rem">Единицы хранения (${units.length})</div>`;
+    units.forEach(u => {
+      const hasFile = u.file_path;
+      const isImg = isImage(u.file_path);
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:0.5rem 0.75rem;border:1px solid #e0ddd8;background:white;margin-bottom:3px;cursor:pointer;transition:border-color 0.15s"
+        onmouseover="this.style.borderColor='#1a1a1a'" onmouseout="this.style.borderColor='#e0ddd8'"
+        onclick="closeCaseModal();${u.doc_id ? `openDocModal(${u.doc_id})` : ''}">
+        <span style="font-size:0.68rem;font-family:monospace;color:#aaa;min-width:32px">Ед.${u.unit_number}</span>
+        ${isImg ? `<img src="${u.url}" style="width:36px;height:36px;object-fit:cover;flex-shrink:0;border:1px solid #e0ddd8">` : `<span style="font-size:1.2rem">${DOC_ICONS[u.doc_type]||'📄'}</span>`}
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.doc_title||u.title||'—'}</div>
+          <div style="font-size:0.7rem;color:#aaa;font-family:sans-serif">${u.doc_type||''} ${u.date_created ? '· '+u.date_created.split('T')[0] : ''}</div>
+        </div>
+        <span style="font-size:0.65rem;font-family:monospace;color:#ccc">${u.archive_ref||''}</span>
+      </div>`;
+    });
+  }
+
+  document.getElementById('cm-body').innerHTML = html;
+}
+
+function closeCaseModal() {
+  document.getElementById('case-modal-overlay').classList.remove('open');
+}
+
+document.getElementById('case-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeCaseModal();
+});
+
+// ========================
+// ПОИСК
+// ========================
+
+document.getElementById('q').addEventListener('input', function() {
+  clearTimeout(debounceTimer);
+  const q = this.value.trim();
+  if (q.length < 2) { document.getElementById('results').innerHTML=''; document.getElementById('hint').textContent=''; return; }
+  document.getElementById('hint').textContent = 'Поиск…';
+  debounceTimer = setTimeout(doSearch, 300);
+});
+document.getElementById('q').addEventListener('keydown', e => { if (e.key==='Enter') doSearch(); });
+document.addEventListener('keydown', e => {
+  if (e.key==='Escape') { closeLightbox(); closeDocModal(); closeCaseModal(); closeDetail(); }
+});
+
+async function doSearch() {
+  const q = document.getElementById('q').value.trim();
+  if (!q) return;
+  document.getElementById('hint').textContent = '';
+  try {
+    const r = await fetch(`${API}/search?q=${encodeURIComponent(q)}`);
+    const d = await r.json();
+    renderResults(d.results);
+  } catch(e) {
+    document.getElementById('results').innerHTML = '<p class="empty">Ошибка подключения к серверу.</p>';
+  }
+}
+
+function renderResults(results) {
+  const c = document.getElementById('results');
+  if (!results.length) { c.innerHTML='<p class="empty">Ничего не найдено.</p>'; return; }
+  const groups = {};
+  results.forEach(r => { if (!groups[r.entity_type]) groups[r.entity_type]=[]; groups[r.entity_type].push(r); });
+  let html = '';
+  for (const [type, items] of Object.entries(groups)) {
+    html += `<div class="group-title">${LABELS[type]||type}</div>`;
+    items.forEach(item => {
+      html += `<div class="card" onclick="openDetail('${type}',${item.id})">
+        <div class="card-title">${item.title}</div>
+        <div class="card-meta"><span class="badge">${TYPE_RU[type]||type}</span></div>
+      </div>`;
+    });
+  }
+  c.innerHTML = html;
+}
+
+// ========================
+// БОКОВАЯ ПАНЕЛЬ
+// ========================
+
+async function openDetail(type, id) {
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('detail').classList.add('open');
+  document.getElementById('detail-content').innerHTML = '<p style="color:#888;padding:1rem 0;font-family:sans-serif;font-size:0.85rem">Загрузка…</p>';
+  try {
+    if (type==='person') {
+      const r = await fetch(`${API}/persons/${id}`); const d = await r.json();
+      renderPersonDetail(d.person, d.productions, d.documents||[]);
+    } else if (type==='production') {
+      const r = await fetch(`${API}/productions/${id}`); const d = await r.json();
+      renderProductionDetail(d.production, d.persons, d.documents||[]);
+    } else if (type==='document') {
+      openDocModal(id);
+    }
+  } catch(e) {
+    document.getElementById('detail-content').innerHTML = '<p style="color:#888">Ошибка загрузки.</p>';
+  }
+}
+
+function renderPersonDetail(p, productions, documents) {
+  const avatar = documents.find(d => d.doc_type==='фотография' && isImage(d.file_path));
+  const photos = documents.filter(d => isImage(d.file_path));
+  const nonPhotos = documents.filter(d => !isImage(d.file_path));
+
+  document.getElementById('detail-content').innerHTML = `
+    ${avatar ? `<img src="${avatar.url}" class="person-avatar">` : ''}
+    <h2>${p.last_name} ${p.first_name||''} ${p.patronymic||''}</h2>
+    ${p.roles?.length ? `<div class="dl"><dt>Роли</dt><dd>${p.roles.join(', ')}</dd></div>` : ''}
+    ${p.born ? `<div class="dl"><dt>Дата рождения</dt><dd>${formatDate(p.born)}</dd></div>` : ''}
+    ${p.died ? `<div class="dl"><dt>Дата смерти</dt><dd>${formatDate(p.died)}</dd></div>` : ''}
+    ${p.bio ? `<div class="dl"><dt>Биография</dt><dd>${p.bio}</dd></div>` : ''}
+    ${productions.length ? `
+      <div class="section-label">Проекты</div>
+      ${productions.map(pr=>`<div class="card" style="margin-bottom:3px" onclick="openDetail('production',${pr.id})">
+        <div class="card-title">${pr.title}</div>
+        <div class="card-meta">${pr.theater_name||''} ${pr.season ? '· '+pr.season : ''} ${pr.role_in_production ? '· '+pr.role_in_production : ''}</div>
+      </div>`).join('')}` : ''}
+    ${photos.length ? `
+      <div class="section-label">Фотографии (${photos.length})</div>
+      <div class="doc-grid">${photos.map(d=>docThumb(d)).join('')}</div>` : ''}
+    ${nonPhotos.length ? `
+      <div class="section-label">Документы</div>
+      ${nonPhotos.map(d=>docRow(d)).join('')}` : ''}
+  `;
+}
+
+function renderProductionDetail(pr, persons, documents) {
+  const photos = documents.filter(d => isImage(d.file_path));
+  const nonPhotos = documents.filter(d => !isImage(d.file_path));
+
+  const crew = [
+    pr.stage_designer ? `Сценограф: ${pr.stage_designer}` : null,
+    pr.costume_designer ? `Художник по костюмам: ${pr.costume_designer}` : null,
+    pr.composer ? `Композитор: ${pr.composer}` : null,
+    pr.lighting_designer ? `Художник по свету: ${pr.lighting_designer}` : null,
+  ].filter(Boolean);
+
+  document.getElementById('detail-content').innerHTML = `
+    <h2>«${pr.title}»</h2>
+    ${pr.subtitle ? `<div style="color:#888;font-size:0.88rem;margin-bottom:0.65rem;margin-top:-0.4rem">${pr.subtitle}</div>` : ''}
+    ${pr.theater_name ? `<div class="dl"><dt>Театр</dt><dd>${pr.theater_name}</dd></div>` : ''}
+    ${pr.season ? `<div class="dl"><dt>Сезон</dt><dd>${pr.season}</dd></div>` : ''}
+    ${pr.playwright ? `<div class="dl"><dt>Драматург</dt><dd>${pr.playwright}</dd></div>` : ''}
+    ${pr.genre ? `<div class="dl"><dt>Жанр</dt><dd>${pr.genre}</dd></div>` : ''}
+    ${pr.premiere_date ? `<div class="dl"><dt>Премьера</dt><dd>${formatDate(pr.premiere_date)}</dd></div>` : ''}
+    ${crew.length ? `<div class="dl"><dt>Постановочная группа</dt><dd>${crew.join('<br>')}</dd></div>` : ''}
+    ${pr.description ? `<div class="dl"><dt>Описание</dt><dd>${pr.description}</dd></div>` : ''}
+    ${persons.length ? `
+      <div class="section-label">Участники</div>
+      <div style="line-height:2.2;margin-top:0.25rem">
+        ${persons.map(p=>`<span class="person-link" onclick="openDetail('person',${p.id})">${p.last_name} ${p.first_name||''}</span>${p.role_in_production?`<span style="color:#aaa;font-size:0.75rem;font-family:sans-serif"> ${p.role_in_production}</span>`:''}`).join(' ')}
+      </div>` : ''}
+    ${photos.length ? `
+      <div class="section-label">Фотографии (${photos.length})</div>
+      <div class="doc-grid">${photos.map(d=>docThumb(d)).join('')}</div>` : ''}
+    ${nonPhotos.length ? `
+      <div class="section-label">Документы</div>
+      ${nonPhotos.map(d=>docRow(d)).join('')}` : ''}
+  `;
+}
+
+function docThumb(d) {
+  return `<div class="doc-thumb" onclick="openDocModal(${d.id})">
+    ${isImage(d.file_path) ? `<img src="${d.url}" alt="${d.title||''}" loading="lazy">` : `<div class="doc-icon-box">${DOC_ICONS[d.doc_type]||'📄'}</div>`}
+    <div class="type-badge">${d.doc_type||''}</div>
+    <div class="doc-cap">${d.title||''}</div>
+  </div>`;
+}
+
+function docRow(d) {
+  return `<div class="doc-row" onclick="openDocModal(${d.id})">
+    <span style="font-size:1.1rem">${DOC_ICONS[d.doc_type]||'📄'}</span>
+    <span style="flex:1;font-size:0.82rem">${d.title}</span>
+    <span style="font-size:0.68rem;color:#aaa;font-family:sans-serif">${d.doc_type}</span>
+  </div>`;
+}
+
+function closeDetail() {
+  document.getElementById('detail').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+// ========================
+// МОДАЛ ДОКУМЕНТА
+// ========================
+
+async function openDocModal(docId) {
+  document.getElementById('doc-modal-overlay').classList.add('open');
+  document.getElementById('dm-title').textContent = 'Загрузка…';
+  document.getElementById('dm-media').innerHTML = '';
+  document.getElementById('dm-info').innerHTML = '';
+  document.getElementById('dm-ref').textContent = '';
+
+  try {
+    const r = await fetch(`${API}/documents/${docId}`);
+    const data = await r.json();
+    const d = data.document;
+
+    document.getElementById('dm-title').textContent = d.title;
+    document.getElementById('dm-ref').textContent = d.archive_ref || '—';
+    document.getElementById('dm-open').href = d.url || '#';
+
+    const media = document.getElementById('dm-media');
+    if (isImage(d.file_path)) {
+      media.innerHTML = `<img src="${d.url}" alt="${d.title}" title="Нажмите для просмотра"
+        onclick="openLightbox('${d.url}','${(d.title||'').replace(/'/g,"\\'")}','${(d.author||'').replace(/'/g,"\\'")}','${d.date_created||''}')">`;
+    } else {
+      media.innerHTML = `<div class="no-preview"><div class="big-icon">${DOC_ICONS[d.doc_type]||'📄'}</div><span>${d.doc_type||'Документ'}</span></div>`;
+    }
+
+    let info = '';
+    if (d.doc_type) info += `<div class="dl"><dt>Тип</dt><dd>${d.doc_type}</dd></div>`;
+    if (d.author) info += `<div class="dl"><dt>Автор</dt><dd>${d.author}</dd></div>`;
+    if (d.date_created) info += `<div class="dl"><dt>Дата</dt><dd>${formatDate(d.date_created)}</dd></div>`;
+    if (d.source) info += `<div class="dl"><dt>Источник</dt><dd>${d.source}</dd></div>`;
+    if (d.is_original !== null && d.is_original !== undefined) info += `<div class="dl"><dt>Подлинность</dt><dd>${d.is_original ? 'Оригинал' : 'Копия'}</dd></div>`;
+    if (d.description) info += `<div class="dl"><dt>Описание</dt><dd>${d.description}</dd></div>`;
+
+    if (data.productions.length) {
+      info += `<div class="section-label">Спектакли</div>`;
+      data.productions.forEach(p => {
+        info += `<div class="card" style="margin-bottom:3px" onclick="closeDocModal();setTimeout(()=>openDetail('production',${p.id}),100)">
+          <div class="card-title">${p.title}</div>
+          <div class="card-meta">${p.season||''}</div>
+        </div>`;
+      });
+    }
+
+    if (data.persons.length) {
+      info += `<div class="section-label">Персоны</div>`;
+      info += `<div style="line-height:2.4;margin-top:0.2rem">`;
+      data.persons.forEach(p => {
+        info += `<span class="person-link" onclick="closeDocModal();setTimeout(()=>openDetail('person',${p.id}),100)">${p.last_name} ${p.first_name||''}</span> `;
+      });
+      info += `</div>`;
+    }
+
+    document.getElementById('dm-info').innerHTML = info || '<p style="color:#aaa;font-size:0.82rem;font-family:sans-serif">Нет дополнительной информации</p>';
+  } catch(e) {
+    document.getElementById('dm-title').textContent = 'Ошибка загрузки';
+  }
+}
+
+function closeDocModal() {
+  document.getElementById('doc-modal-overlay').classList.remove('open');
+}
+document.getElementById('doc-modal-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeDocModal();
+});
+
+// ========================
+// ЛАЙТБОКС
+// ========================
+
+function openLightbox(url, title, author, dateStr) {
+  document.getElementById('lightbox-img').src = url;
+  const meta = [title, dateStr ? formatDate(dateStr) : null, author ? 'Автор: '+author : null].filter(Boolean).join(' · ');
+  document.getElementById('lightbox-meta').textContent = meta;
+  document.getElementById('lightbox').classList.add('open');
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+}
+
+init();
+</script>
+</body>
+</html>

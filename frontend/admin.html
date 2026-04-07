@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Архив Боякова — Админка</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f5f5f3; color: #1a1a1a; font-size: 14px; }
+
+    /* Шапка */
+    .nav-top {
+      background: #1a1a1a; color: white;
+      display: flex; align-items: center;
+      padding: 0 1rem; height: 46px; gap: 0; flex-shrink: 0;
+    }
+    .nav-top h1 { font-size: 0.82rem; font-weight: 500; flex: 1; opacity: 0.8; }
+    .nav-top a { color: rgba(255,255,255,0.5); text-decoration: none; font-size: 0.75rem; padding: 0 0.75rem; height: 46px; display: flex; align-items: center; }
+    .nav-top a:hover { color: white; }
+
+    /* Вкладки описей */
+    .inv-tabs {
+      background: white; border-bottom: 1px solid #e0ddd8;
+      display: flex; overflow-x: auto; flex-shrink: 0;
+    }
+    .inv-tab {
+      padding: 0 1rem; height: 40px; display: flex; align-items: center;
+      font-size: 0.78rem; cursor: pointer; white-space: nowrap;
+      border-bottom: 2px solid transparent; color: #666;
+      flex-shrink: 0;
+    }
+    .inv-tab:hover { color: #1a1a1a; }
+    .inv-tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; font-weight: 500; }
+    .inv-tab .inv-count { font-size: 0.65rem; color: #aaa; margin-left: 5px; }
+
+    /* Основной layout */
+    .layout {
+      display: flex;
+      height: calc(100vh - 86px);
+    }
+
+    /* Левая панель — дела */
+    .cases-panel {
+      width: 240px; flex-shrink: 0;
+      background: white; border-right: 1px solid #e0ddd8;
+      display: flex; flex-direction: column;
+    }
+    .cases-header {
+      padding: 0.6rem 0.75rem; border-bottom: 1px solid #e0ddd8;
+      display: flex; gap: 6px; align-items: center;
+    }
+    .cases-header span { font-size: 0.7rem; color: #888; flex: 1; }
+    .cases-list { overflow-y: auto; flex: 1; }
+    .case-item {
+      padding: 0.55rem 0.75rem; border-bottom: 1px solid #f0ede8;
+      cursor: pointer; display: flex; align-items: center; gap: 6px;
+    }
+    .case-item:hover { background: #faf9f7; }
+    .case-item.active { background: #f0ede8; }
+    .case-item-title { font-size: 0.82rem; flex: 1; }
+    .case-item-count { font-size: 0.65rem; color: #aaa; }
+    .case-item-del {
+      background: none; border: none; cursor: pointer;
+      color: #ddd; font-size: 0.75rem; padding: 2px 4px;
+      opacity: 0; transition: opacity 0.15s;
+    }
+    .case-item:hover .case-item-del { opacity: 1; }
+    .case-item-del:hover { color: #d00; }
+
+    /* Новое дело */
+    .new-case-form {
+      padding: 0.6rem 0.75rem; border-top: 1px solid #e0ddd8;
+      display: flex; gap: 5px;
+    }
+    .new-case-form input {
+      flex: 1; border: 1px solid #ddd; padding: 0.32rem 0.5rem;
+      font-size: 0.78rem; outline: none;
+    }
+
+    /* Правая панель — содержимое дела */
+    .content-panel { flex: 1; overflow-y: auto; padding: 1.1rem 1.4rem; }
+    .content-panel h2 { font-size: 0.95rem; font-weight: 500; margin-bottom: 0.85rem; padding-bottom: 0.6rem; border-bottom: 1px solid #e0ddd8; display: flex; align-items: center; gap: 10px; }
+    .content-panel h2 .case-ref { font-size: 0.7rem; font-family: monospace; color: #aaa; font-weight: normal; }
+
+    /* Форма */
+    .field { margin-bottom: 0.7rem; }
+    .field label { display: block; font-size: 0.63rem; color: #888; margin-bottom: 0.18rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .field input, .field textarea, .field select { width: 100%; border: 1px solid #ddd; padding: 0.38rem 0.55rem; font-size: 0.83rem; outline: none; font-family: sans-serif; background: white; }
+    .field textarea { resize: vertical; min-height: 65px; }
+    .field input:focus, .field textarea:focus, .field select:focus { border-color: #1a1a1a; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.7rem; }
+
+    .btn { background: #1a1a1a; color: white; border: none; padding: 0.35rem 0.85rem; font-size: 0.78rem; cursor: pointer; }
+    .btn:hover { background: #333; }
+    .btn-sm { background: none; border: 1px solid #ccc; color: #555; padding: 0.25rem 0.6rem; font-size: 0.7rem; cursor: pointer; }
+    .btn-sm:hover { border-color: #999; }
+    .btn-danger { border-color: #d00 !important; color: #d00 !important; }
+    .btn-outline { background: none; border: 1px solid #1a1a1a; color: #1a1a1a; padding: 0.35rem 0.85rem; font-size: 0.78rem; cursor: pointer; }
+    .btn-outline:hover { background: #f5f5f3; }
+
+    .form-actions { display: flex; gap: 6px; margin-top: 0.85rem; padding-top: 0.7rem; border-top: 1px solid #e0ddd8; flex-wrap: wrap; }
+
+    .section-title { font-size: 0.63rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; margin: 1rem 0 0.45rem; padding-bottom: 0.28rem; border-bottom: 1px solid #e0ddd8; }
+
+    /* Теги участников */
+    .tag-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 0.45rem; }
+    .tag { display: inline-flex; align-items: center; gap: 4px; border: 1px solid #ddd; padding: 0.15rem 0.45rem; font-size: 0.7rem; background: white; }
+    .tag button { background: none; border: none; cursor: pointer; color: #bbb; line-height: 1; padding: 0; font-size: 0.75rem; }
+    .tag button:hover { color: #d00; }
+    .add-row { display: flex; gap: 5px; }
+    .add-row select, .add-row input { flex: 1; border: 1px solid #ddd; padding: 0.35rem 0.5rem; font-size: 0.78rem; outline: none; min-width: 0; }
+
+    /* Мультиселект */
+    .multiselect { border: 1px solid #ddd; max-height: 95px; overflow-y: auto; background: white; }
+    .multiselect label { display: flex; align-items: center; gap: 6px; padding: 0.22rem 0.55rem; font-size: 0.78rem; cursor: pointer; border-bottom: 1px solid #f5f4f2; }
+    .multiselect label:hover { background: #faf9f7; }
+
+    /* Документы */
+    .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 5px; margin-bottom: 0.6rem; }
+    .doc-card { border: 1px solid #e0ddd8; background: white; cursor: pointer; overflow: hidden; position: relative; }
+    .doc-card:hover { border-color: #999; }
+    .doc-card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    .doc-card .doc-icon { width: 100%; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; background: #f5f4f2; }
+    .doc-card .doc-label { padding: 2px 4px; font-size: 0.58rem; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-top: 1px solid #f0ede8; }
+    .doc-card .doc-badge { position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.55); color: white; font-size: 0.54rem; padding: 1px 3px; }
+    .doc-card .doc-del { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.55); color: white; border: none; width: 17px; height: 17px; cursor: pointer; font-size: 0.58rem; display: flex; align-items: center; justify-content: center; opacity: 0; }
+    .doc-card:hover .doc-del { opacity: 1; }
+
+    /* Загрузка */
+    .upload-panel { border: 1px solid #e0ddd8; background: #fafaf9; padding: 0.75rem; margin-top: 0.6rem; }
+    .upload-panel h4 { font-size: 0.72rem; font-weight: 500; margin-bottom: 0.55rem; color: #444; }
+    .drop-zone { border: 1.5px dashed #ccc; padding: 0.75rem; text-align: center; cursor: pointer; margin-bottom: 0.55rem; background: white; }
+    .drop-zone:hover, .drop-zone.drag { border-color: #1a1a1a; }
+    .drop-zone p { font-size: 0.72rem; color: #888; }
+    .drop-zone input { display: none; }
+    .selected-file { font-size: 0.72rem; color: #444; margin-top: 0.28rem; font-style: italic; }
+    .progress { height: 3px; background: #e0ddd8; margin-top: 0.38rem; display: none; }
+    .progress .fill { height: 100%; background: #1a1a1a; width: 0; transition: width 0.3s; }
+
+    .empty-state { color: #aaa; font-size: 0.8rem; padding: 1.5rem; text-align: center; }
+
+    .toast { position: fixed; bottom: 1rem; right: 1rem; background: #1a1a1a; color: white; padding: 0.55rem 0.9rem; font-size: 0.78rem; opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 999; max-width: 280px; }
+    .toast.show { opacity: 1; }
+    .toast.err { background: #c00; }
+
+    /* Мобильная адаптация */
+    @media (max-width: 700px) {
+      .layout { flex-direction: column; height: auto; }
+      .cases-panel { width: 100%; height: 180px; border-right: none; border-bottom: 1px solid #e0ddd8; }
+      .content-panel { padding: 0.85rem; }
+      .row2, .row3 { grid-template-columns: 1fr; }
+      .inv-tab { font-size: 0.72rem; padding: 0 0.65rem; }
+      .nav-top h1 { font-size: 0.76rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="nav-top">
+  <h1>Архив Боякова — Админка</h1>
+  <a href="index.html" target="_blank">→ Сайт</a>
+</div>
+
+<div class="inv-tabs" id="inv-tabs">
+  <div style="color:#aaa;font-size:0.78rem;padding:0 1rem;display:flex;align-items:center">Загрузка…</div>
+</div>
+
+<div class="layout">
+  <div class="cases-panel">
+    <div class="cases-header">
+      <span id="cases-inv-label">Дела</span>
+      <button class="btn-sm" onclick="showNewItemForm()">+ Добавить</button>
+    </div>
+    <div class="cases-list" id="cases-list">
+      <div class="empty-state">Выберите опись</div>
+    </div>
+    <div class="new-case-form">
+      <input id="new-case-input" placeholder="Новое дело…" onkeydown="if(event.key==='Enter')createCase()">
+      <button class="btn" onclick="createCase()">+</button>
+    </div>
+  </div>
+  <div class="content-panel" id="content-panel">
+    <div class="empty-state">Выберите опись и дело слева</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = 'http://178.253.38.120/api';
+
+// Состояние
+let allInventories = [];
+let currentInvId = null;
+let currentCaseId = null;
+let currentCaseData = null;
+let allPersons = [];
+let allProductions = [];
+let docTypes = [];
+let casesByInv = {};
+let uploadFile = null;
+
+const IMAGE_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.tiff'];
+const DOC_ICONS = {'фотография':'🖼','афиша':'🎭','программка':'📋','видеозапись':'🎬','рецензия':'📝','текст пьесы':'📖','договор':'📑','интервью':'🎙','лекция':'📚','публикация':'📰','концепция':'💡','черновик':'✏️','переписка':'✉️','другое':'📄'};
+function isImage(p) { return p && IMAGE_EXTS.some(e => p.toLowerCase().endsWith(e)); }
+
+// ========================
+// ИНИЦИАЛИЗАЦИЯ
+// ========================
+
+async function init() {
+  const [inv, pe, pr, dt] = await Promise.all([
+    fetch(`${API}/archive/inventories`).then(r=>r.json()),
+    fetch(`${API}/persons?limit=200`).then(r=>r.json()),
+    fetch(`${API}/productions?limit=200`).then(r=>r.json()),
+    fetch(`${API}/doc-types`).then(r=>r.json()),
+  ]);
+  allInventories = inv;
+  allPersons = pe;
+  allProductions = pr;
+  docTypes = dt;
+  renderInvTabs();
+  if (inv.length) selectInventory(inv[0].id);
+}
+
+function renderInvTabs() {
+  document.getElementById('inv-tabs').innerHTML = allInventories.map(i => `
+    <div class="inv-tab" id="inv-tab-${i.id}" onclick="selectInventory(${i.id})">
+      ${i.title}
+      <span class="inv-count">${i.cases_count}</span>
+    </div>`).join('');
+}
+
+async function selectInventory(invId) {
+  currentInvId = invId;
+  currentCaseId = null;
+  document.querySelectorAll('.inv-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`inv-tab-${invId}`)?.classList.add('active');
+  const inv = allInventories.find(i => i.id === invId);
+  document.getElementById('cases-inv-label').textContent = inv ? `Оп.${inv.number}` : 'Дела';
+  document.getElementById('content-panel').innerHTML = '<div class="empty-state">Выберите дело</div>';
+  await loadCases(invId);
+}
+
+async function loadCases(invId) {
+  const r = await fetch(`${API}/archive/inventories/${invId}`);
+  const d = await r.json();
+  casesByInv[invId] = d.cases || [];
+  renderCases(casesByInv[invId]);
+  // Обновляем счётчик в табе
+  const tab = document.getElementById(`inv-tab-${invId}`);
+  if (tab) {
+    const countEl = tab.querySelector('.inv-count');
+    if (countEl) countEl.textContent = casesByInv[invId].length;
+  }
+}
+
+function renderCases(cases) {
+  const list = document.getElementById('cases-list');
+  if (!cases.length) { list.innerHTML = '<div class="empty-state">Нет дел</div>'; return; }
+  list.innerHTML = cases.map(c => `
+    <div class="case-item ${c.id===currentCaseId?'active':''}" onclick="selectCase(${c.id})">
+      <div class="case-item-title">${c.title}</div>
+      <span class="case-item-count">${c.units_count}</span>
+      ${c.units_count === 0 ? `<button class="case-item-del" onclick="event.stopPropagation();deleteCase(${c.id})" title="Удалить пустое дело">✕</button>` : ''}
+    </div>`).join('');
+}
+
+async function createCase() {
+  const input = document.getElementById('new-case-input');
+  const title = input.value.trim();
+  if (!title || !currentInvId) { toast('Введите название и выберите опись', true); return; }
+  const r = await fetch(`${API}/archive/cases`, {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ inventory_id: currentInvId, title })
+  });
+  const data = await r.json();
+  toast('Дело создано');
+  input.value = '';
+  delete casesByInv[currentInvId];
+  await loadCases(currentInvId);
+  // Обновляем описи
+  const inv = await fetch(`${API}/archive/inventories`).then(r=>r.json());
+  allInventories = inv;
+  renderInvTabs();
+  document.getElementById(`inv-tab-${currentInvId}`)?.classList.add('active');
+}
+
+async function deleteCase(caseId) {
+  if (!confirm('Удалить пустое дело?')) return;
+  await fetch(`${API}/archive/cases/${caseId}`, {method:'DELETE'});
+  toast('Дело удалено');
+  if (currentCaseId === caseId) {
+    currentCaseId = null;
+    document.getElementById('content-panel').innerHTML = '<div class="empty-state">Выберите дело</div>';
+  }
+  delete casesByInv[currentInvId];
+  await loadCases(currentInvId);
+}
+
+async function selectCase(caseId) {
+  currentCaseId = caseId;
+  renderCases(casesByInv[currentInvId] || []);
+  const r = await fetch(`${API}/archive/cases/${caseId}`);
+  const d = await r.json();
+  currentCaseData = d;
+  renderCaseContent(d);
+}
+
+// ========================
+// СОДЕРЖИМОЕ ДЕЛА
+// ========================
+
+function renderCaseContent(d) {
+  const c = d.case;
+  const units = d.units || [];
+  const inv = allInventories.find(i => i.id === currentInvId);
+  const ref = `${c.fund_code} Оп.${c.inv_number} Д.${c.number}`;
+
+  // Определяем тип дела по описи
+  const invNum = inv ? parseInt(inv.number) : 0;
+
+  let html = `<h2>${c.title} <span class="case-ref">${ref}</span></h2>`;
+
+  if (c.description) html += `<p style="font-size:0.85rem;color:#555;margin-bottom:0.85rem;line-height:1.5">${c.description}</p>`;
+
+  // Добавить запись в зависимости от описи
+  if (invNum === 1) {
+    // Театральные проекты — показываем форму спектакля или список
+    html += renderProjectsInCase(units, caseId=c.id);
+  } else if (invNum === 2) {
+    // Персоналии
+    html += renderPersonsInCase(units, caseId=c.id);
+  } else {
+    // Остальные — документы
+    html += renderDocsInCase(units, c.id);
+  }
+
+  document.getElementById('content-panel').innerHTML = html;
+}
+
+function renderProjectsInCase(units, caseId) {
+  // Ищем спектакли привязанные к этому делу
+  const linkedProds = allProductions.filter(p => p.inventory_case_id === caseId);
+  let html = '';
+
+  if (linkedProds.length) {
+    html += `<div class="section-title">Спектакли и проекты</div>`;
+    html += linkedProds.map(p => `
+      <div style="display:flex;align-items:center;gap:8px;padding:0.45rem 0.75rem;border:1px solid #e0ddd8;background:white;margin-bottom:3px;cursor:pointer" onclick="openProductionForm(${p.id})">
+        <div style="flex:1">
+          <div style="font-size:0.85rem">«${p.title}»</div>
+          <div style="font-size:0.7rem;color:#aaa">${p.theater_name||''} ${p.season ? '· '+p.season : ''}</div>
+        </div>
+        <span style="font-size:0.7rem;color:#aaa">→</span>
+      </div>`).join('');
+  }
+
+  html += `<div style="margin-top:0.75rem;display:flex;gap:6px;flex-wrap:wrap">
+    <button class="btn" onclick="openProductionForm(0,${caseId})">+ Новый спектакль</button>
+  </div>`;
+
+  html += renderDocsInCase(units, caseId);
+  return html;
+}
+
+function renderPersonsInCase(units, caseId) {
+  const linkedPersons = allPersons.filter(p => p.inventory_case_id === caseId);
+  let html = '';
+
+  if (linkedPersons.length) {
+    html += `<div class="section-title">Персоны</div>`;
+    html += linkedPersons.map(p => `
+      <div style="display:flex;align-items:center;gap:8px;padding:0.45rem 0.75rem;border:1px solid #e0ddd8;background:white;margin-bottom:3px;cursor:pointer" onclick="openPersonForm(${p.id})">
+        <div style="flex:1">
+          <div style="font-size:0.85rem">${p.last_name} ${p.first_name||''}</div>
+          <div style="font-size:0.7rem;color:#aaa">${p.roles?p.roles.join(', '):''}</div>
+        </div>
+        <span style="font-size:0.7rem;color:#aaa">→</span>
+      </div>`).join('');
+  }
+
+  html += `<div style="margin-top:0.75rem;display:flex;gap:6px;flex-wrap:wrap">
+    <button class="btn" onclick="openPersonForm(0,${caseId})">+ Новая персона</button>
+  </div>`;
+
+  html += renderDocsInCase(units, caseId);
+  return html;
+}
+
+function renderDocsInCase(units, caseId) {
+  const docs = units.filter(u => u.object_type === 'document' && u.doc_id);
+  let html = `<div class="section-title">Документы (${docs.length})</div>`;
+
+  if (docs.length) {
+    html += `<div class="doc-grid">`;
+    docs.forEach(u => {
+      const icon = DOC_ICONS[u.doc_type] || '📄';
+      html += `<div class="doc-card" onclick="openDocForm(${u.doc_id})">
+        ${isImage(u.file_path) ? `<img src="${u.url}" alt="">` : `<div class="doc-icon">${icon}</div>`}
+        <div class="doc-badge">${u.doc_type||''}</div>
+        <button class="doc-del" onclick="event.stopPropagation();deleteDocument(${u.doc_id})">✕</button>
+        <div class="doc-label">${u.doc_title||u.title||''}</div>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<button class="btn-outline" onclick="showDocUpload(${caseId})">+ Добавить документ</button>`;
+  html += `<div id="doc-upload-area"></div>`;
+  return html;
+}
+
+// ========================
+// ФОРМА СПЕКТАКЛЯ
+// ========================
+
+async function openProductionForm(id, caseId) {
+  let prod = {};
+  let persons = [];
+  let documents = [];
+
+  if (id) {
+    const r = await fetch(`${API}/productions/${id}`);
+    const d = await r.json();
+    prod = d.production;
+    persons = d.persons;
+    documents = d.documents || [];
+  }
+
+  const personOptions = allPersons.map(a=>`<option value="${a.id}">${a.last_name} ${a.first_name||''}</option>`).join('');
+
+  document.getElementById('content-panel').innerHTML = `
+    <h2>${id ? '«'+prod.title+'»' : 'Новый спектакль'} <span class="case-ref">${id ? '' : 'Оп.1'}</span></h2>
+
+    <div class="field"><label>Название *</label><input id="f-title" value="${prod.title||''}"></div>
+    <div class="row2">
+      <div class="field"><label>Театр</label><input id="f-theater" value="${prod.theater_name||''}"></div>
+      <div class="field"><label>Драматург</label><input id="f-playwright" value="${prod.playwright||''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Жанр</label><input id="f-genre" value="${prod.genre||''}"></div>
+      <div class="field"><label>Сезон</label><input id="f-season" value="${prod.season||''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Дата премьеры</label><input id="f-premiere" type="date" value="${prod.premiere_date?prod.premiere_date.split('T')[0]:''}"></div>
+      <div class="field"><label>Подзаголовок</label><input id="f-subtitle" value="${prod.subtitle||''}"></div>
+    </div>
+
+    <div class="section-title">Постановочная группа</div>
+    <div class="row2">
+      <div class="field"><label>Сценограф</label><input id="f-stage" value="${prod.stage_designer||''}"></div>
+      <div class="field"><label>Художник по костюмам</label><input id="f-costume" value="${prod.costume_designer||''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Композитор</label><input id="f-composer" value="${prod.composer||''}"></div>
+      <div class="field"><label>Художник по свету</label><input id="f-lighting" value="${prod.lighting_designer||''}"></div>
+    </div>
+    <div class="field"><label>Описание</label><textarea id="f-desc">${prod.description||''}</textarea></div>
+
+    <div class="form-actions">
+      <button class="btn" onclick="saveProduction(${id||0},${caseId||prod.inventory_case_id||0})">${id?'Сохранить':'Создать'}</button>
+      <button class="btn-outline" onclick="selectCase(${currentCaseId})">Отмена</button>
+      ${id?`<button class="btn-sm btn-danger" onclick="deleteProduction(${id})">Удалить</button>`:''}
+    </div>
+
+    ${id ? `
+    <div class="section-title">Участники</div>
+    <div class="tag-wrap" id="persons-tags">${renderPersonTags(persons, id)}</div>
+    <div class="add-row">
+      <select id="new-person-sel">${personOptions}</select>
+      <input id="new-person-role" placeholder="Роль (актёр…)">
+      <button class="btn" onclick="addPersonToProd(${id})">+</button>
+    </div>
+
+    <div class="section-title">Документы (${documents.length})</div>
+    <div class="doc-grid">${documents.map(d=>`
+      <div class="doc-card" onclick="openDocForm(${d.id})">
+        ${isImage(d.file_path)?`<img src="${d.url}" alt="">` : `<div class="doc-icon">${DOC_ICONS[d.doc_type]||'📄'}</div>`}
+        <div class="doc-badge">${d.doc_type||''}</div>
+        <button class="doc-del" onclick="event.stopPropagation();deleteDocument(${d.id})">✕</button>
+        <div class="doc-label">${d.title||''}</div>
+      </div>`).join('')}</div>
+    <button class="btn-outline" onclick="showDocUploadForEntity('production',${id})">+ Добавить документ</button>
+    <div id="doc-upload-area"></div>
+    ` : ''}
+  `;
+}
+
+async function saveProduction(id, caseId) {
+  const body = {
+    title: document.getElementById('f-title').value.trim(),
+    subtitle: document.getElementById('f-subtitle').value.trim()||null,
+    playwright: document.getElementById('f-playwright').value.trim()||null,
+    genre: document.getElementById('f-genre').value.trim()||null,
+    season: document.getElementById('f-season').value.trim()||null,
+    premiere_date: document.getElementById('f-premiere').value||null,
+    theater_name: document.getElementById('f-theater').value.trim()||null,
+    stage_designer: document.getElementById('f-stage').value.trim()||null,
+    costume_designer: document.getElementById('f-costume').value.trim()||null,
+    composer: document.getElementById('f-composer').value.trim()||null,
+    lighting_designer: document.getElementById('f-lighting').value.trim()||null,
+    description: document.getElementById('f-desc').value.trim()||null,
+    inventory_case_id: caseId || null,
+  };
+  if (!body.title) { toast('Введите название', true); return; }
+  const res = await fetch(id?`${API}/productions/${id}`:`${API}/productions`, {
+    method: id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+  });
+  const data = await res.json();
+  toast(id?'Сохранено':'Создано');
+  allProductions = await fetch(`${API}/productions?limit=200`).then(r=>r.json());
+  const newId = id || data.id;
+  await selectCase(currentCaseId);
+  if (newId) openProductionForm(newId, caseId);
+}
+
+async function deleteProduction(id) {
+  if (!confirm('Удалить спектакль?')) return;
+  await fetch(`${API}/productions/${id}`, {method:'DELETE'});
+  toast('Удалено');
+  allProductions = await fetch(`${API}/productions?limit=200`).then(r=>r.json());
+  await selectCase(currentCaseId);
+}
+
+function renderPersonTags(persons, prodId) {
+  if (!persons.length) return '<span style="color:#aaa;font-size:0.76rem">Нет участников</span>';
+  return persons.map(p=>`<span class="tag">${p.last_name} ${p.first_name||''} <span style="color:#aaa">· ${p.role_in_production||''}</span>
+    <button onclick="removePersonFromProd(${prodId},${p.id})">✕</button></span>`).join('');
+}
+
+async function addPersonToProd(prodId) {
+  const person_id = parseInt(document.getElementById('new-person-sel').value);
+  const role = document.getElementById('new-person-role').value.trim()||'актёр';
+  await fetch(`${API}/productions/${prodId}/persons`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({person_id, role_in_production:role})
+  });
+  toast('Добавлено'); openProductionForm(prodId);
+}
+
+async function removePersonFromProd(prodId, personId) {
+  await fetch(`${API}/productions/${prodId}/persons/${personId}`, {method:'DELETE'});
+  toast('Удалено'); openProductionForm(prodId);
+}
+
+// ========================
+// ФОРМА ПЕРСОНЫ
+// ========================
+
+async function openPersonForm(id, caseId) {
+  let person = {};
+  let productions = [];
+  let documents = [];
+
+  if (id) {
+    const r = await fetch(`${API}/persons/${id}`);
+    const d = await r.json();
+    person = d.person;
+    productions = d.productions;
+    documents = d.documents || [];
+  }
+
+  document.getElementById('content-panel').innerHTML = `
+    <h2>${id ? person.last_name+' '+( person.first_name||'') : 'Новая персона'} <span class="case-ref">${id ? '' : 'Оп.2'}</span></h2>
+
+    <div class="row2">
+      <div class="field"><label>Фамилия *</label><input id="f-last" value="${person.last_name||''}"></div>
+      <div class="field"><label>Имя</label><input id="f-first" value="${person.first_name||''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Отчество</label><input id="f-pat" value="${person.patronymic||''}"></div>
+      <div class="field"><label>Роли (через запятую)</label><input id="f-roles" value="${person.roles?person.roles.join(', '):''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Дата рождения</label><input id="f-born" type="date" value="${person.born?person.born.split('T')[0]:''}"></div>
+      <div class="field"><label>Дата смерти</label><input id="f-died" type="date" value="${person.died?person.died.split('T')[0]:''}"></div>
+    </div>
+    <div class="field"><label>Биография</label><textarea id="f-bio">${person.bio||''}</textarea></div>
+
+    <div class="form-actions">
+      <button class="btn" onclick="savePerson(${id||0},${caseId||person.inventory_case_id||0})">${id?'Сохранить':'Создать'}</button>
+      <button class="btn-outline" onclick="selectCase(${currentCaseId})">Отмена</button>
+      ${id?`<button class="btn-sm btn-danger" onclick="deletePerson(${id})">Удалить</button>`:''}
+    </div>
+
+    ${id ? `
+    <div class="section-title">Участие в проектах</div>
+    ${productions.length ? productions.map(pr=>`<div style="padding:0.35rem 0.65rem;border:1px solid #e0ddd8;background:white;margin-bottom:3px;font-size:0.82rem;cursor:pointer" onclick="openProductionForm(${pr.id})">${pr.title} <span style="color:#aaa;font-size:0.72rem">${pr.season||''} · ${pr.role_in_production||''}</span></div>`).join('') : '<div style="color:#aaa;font-size:0.76rem">Нет проектов</div>'}
+
+    <div class="section-title">Документы (${documents.length})</div>
+    <div class="doc-grid">${documents.map(d=>`
+      <div class="doc-card" onclick="openDocForm(${d.id})">
+        ${isImage(d.file_path)?`<img src="${d.url}" alt="">` : `<div class="doc-icon">${DOC_ICONS[d.doc_type]||'📄'}</div>`}
+        <div class="doc-badge">${d.doc_type||''}</div>
+        <button class="doc-del" onclick="event.stopPropagation();deleteDocument(${d.id})">✕</button>
+        <div class="doc-label">${d.title||''}</div>
+      </div>`).join('')}</div>
+    <button class="btn-outline" onclick="showDocUploadForEntity('person',${id})">+ Добавить документ</button>
+    <div id="doc-upload-area"></div>
+    ` : ''}
+  `;
+}
+
+async function savePerson(id, caseId) {
+  const roles = document.getElementById('f-roles').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const body = {
+    last_name: document.getElementById('f-last').value.trim(),
+    first_name: document.getElementById('f-first').value.trim()||null,
+    patronymic: document.getElementById('f-pat').value.trim()||null,
+    born: document.getElementById('f-born').value||null,
+    died: document.getElementById('f-died').value||null,
+    roles, bio: document.getElementById('f-bio').value.trim()||null,
+    inventory_case_id: caseId || null,
+  };
+  if (!body.last_name) { toast('Введите фамилию', true); return; }
+  const res = await fetch(id?`${API}/persons/${id}`:`${API}/persons`, {
+    method: id?'PUT':'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+  });
+  const data = await res.json();
+  toast(id?'Сохранено':'Создано');
+  allPersons = await fetch(`${API}/persons?limit=200`).then(r=>r.json());
+  const newId = id || data.id;
+  await selectCase(currentCaseId);
+  if (newId) openPersonForm(newId, caseId);
+}
+
+async function deletePerson(id) {
+  if (!confirm('Удалить персону?')) return;
+  await fetch(`${API}/persons/${id}`, {method:'DELETE'});
+  toast('Удалено');
+  allPersons = await fetch(`${API}/persons?limit=200`).then(r=>r.json());
+  await selectCase(currentCaseId);
+}
+
+// ========================
+// ФОРМА ДОКУМЕНТА
+// ========================
+
+async function openDocForm(id) {
+  const r = await fetch(`${API}/documents/${id}`);
+  const d = await r.json();
+  const doc = d.document;
+  const productions = d.productions;
+  const persons = d.persons;
+
+  const typeOptions = docTypes.map(t=>`<option value="${t}" ${doc.doc_type===t?'selected':''}>${t}</option>`).join('');
+  const prodChecks = allProductions.map(p=>`<label><input type="checkbox" value="${p.id}" ${productions.find(r=>r.id===p.id)?'checked':''}> ${p.title}</label>`).join('');
+  const persChecks = allPersons.map(p=>`<label><input type="checkbox" value="${p.id}" ${persons.find(r=>r.id===p.id)?'checked':''}> ${p.last_name} ${p.first_name||''}</label>`).join('');
+
+  document.getElementById('content-panel').innerHTML = `
+    <h2>${doc.title} <span class="case-ref">${doc.archive_ref||''}</span></h2>
+
+    ${isImage(doc.file_path) ? `<img src="${doc.url}" style="max-width:100%;max-height:180px;object-fit:contain;border:1px solid #e0ddd8;margin-bottom:0.85rem;display:block">` :
+      `<a href="${doc.url}" target="_blank" style="display:inline-block;margin-bottom:0.85rem;font-size:0.82rem;color:#1a1a1a;border-bottom:1px solid #ccc">${DOC_ICONS[doc.doc_type]||'📄'} Открыть файл</a>`}
+
+    <div class="row2">
+      <div class="field"><label>Название</label><input id="f-title" value="${doc.title||''}"></div>
+      <div class="field"><label>Тип</label><select id="f-doctype">${typeOptions}</select></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Автор</label><input id="f-author" value="${doc.author||''}"></div>
+      <div class="field"><label>Дата</label><input id="f-date" type="date" value="${doc.date_created?doc.date_created.split('T')[0]:''}"></div>
+    </div>
+    <div class="row2">
+      <div class="field"><label>Источник</label><input id="f-source" value="${doc.source||''}"></div>
+      <div class="field"><label>Подлинность</label>
+        <select id="f-original">
+          <option value="true" ${doc.is_original!==false?'selected':''}>Оригинал</option>
+          <option value="false" ${doc.is_original===false?'selected':''}>Копия</option>
+        </select>
+      </div>
+    </div>
+    <div class="field"><label>Описание</label><textarea id="f-desc">${doc.description||''}</textarea></div>
+    <div class="row2">
+      <div class="field"><label>Спектакли</label><div class="multiselect" id="prod-checks">${prodChecks}</div></div>
+      <div class="field"><label>Персоны</label><div class="multiselect" id="pers-checks">${persChecks}</div></div>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn" onclick="updateDocument(${id})">Сохранить</button>
+      <button class="btn-outline" onclick="selectCase(${currentCaseId})">Отмена</button>
+      <button class="btn-sm btn-danger" onclick="deleteDocument(${id})">Удалить</button>
+    </div>
+  `;
+}
+
+async function updateDocument(id) {
+  const formData = new FormData();
+  formData.append('title', document.getElementById('f-title').value.trim());
+  formData.append('doc_type', document.getElementById('f-doctype').value);
+  formData.append('author', document.getElementById('f-author').value.trim());
+  formData.append('date_created', document.getElementById('f-date').value);
+  formData.append('source', document.getElementById('f-source').value.trim());
+  formData.append('is_original', document.getElementById('f-original').value);
+  formData.append('description', document.getElementById('f-desc').value.trim());
+  formData.append('production_ids', JSON.stringify(getChecked('prod-checks')));
+  formData.append('person_ids', JSON.stringify(getChecked('pers-checks')));
+  formData.append('inventory_id', '');
+  await fetch(`${API}/documents/${id}`, {method:'PUT', body:formData});
+  toast('Сохранено');
+  await selectCase(currentCaseId);
+}
+
+async function deleteDocument(id) {
+  if (!confirm('Удалить документ и файл?')) return;
+  await fetch(`${API}/documents/${id}`, {method:'DELETE'});
+  toast('Удалено');
+  await selectCase(currentCaseId);
+}
+
+function getChecked(containerId) {
+  return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(el=>parseInt(el.value));
+}
+
+// ========================
+// ЗАГРУЗКА ДОКУМЕНТА
+// ========================
+
+function showDocUpload(caseId) {
+  renderUploadForm(null, null, caseId);
+}
+
+function showDocUploadForEntity(entityType, entityId) {
+  renderUploadForm(entityType, entityId, null);
+}
+
+function showNewItemForm() {
+  if (!currentInvId) { toast('Выберите опись', true); return; }
+  const inv = allInventories.find(i => i.id === currentInvId);
+  const invNum = inv ? parseInt(inv.number) : 0;
+  if (invNum === 1) openProductionForm(0, currentCaseId);
+  else if (invNum === 2) openPersonForm(0, currentCaseId);
+  else showDocUpload(currentCaseId);
+}
+
+function renderUploadForm(entityType, entityId, caseId) {
+  const typeOptions = docTypes.map(t=>`<option value="${t}">${t}</option>`).join('');
+  const prodChecks = allProductions.map(p=>`<label><input type="checkbox" value="${p.id}" ${entityType==='production'&&entityId===p.id?'checked':''}> ${p.title}</label>`).join('');
+  const persChecks = allPersons.map(p=>`<label><input type="checkbox" value="${p.id}" ${entityType==='person'&&entityId===p.id?'checked':''}> ${p.last_name} ${p.first_name||''}</label>`).join('');
+
+  const area = document.getElementById('doc-upload-area');
+  if (!area) return;
+
+  area.innerHTML = `
+    <div class="upload-panel">
+      <h4>Загрузить документ</h4>
+      <div class="drop-zone" id="drop-z" onclick="document.getElementById('doc-file-inp').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')"
+        ondrop="handleDrop(event)">
+        <p>Нажмите или перетащите файл</p>
+        <input type="file" id="doc-file-inp" onchange="selectFile(this.files[0])">
+      </div>
+      <div class="selected-file" id="sel-file-name">Файл не выбран</div>
+      <div class="row2" style="margin-top:0.5rem">
+        <div class="field"><label>Название</label><input id="u-title" placeholder="Оставьте пустым"></div>
+        <div class="field"><label>Тип</label><select id="u-type">${typeOptions}</select></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Автор</label><input id="u-author"></div>
+        <div class="field"><label>Дата</label><input type="date" id="u-date"></div>
+      </div>
+      <div class="row2">
+        <div class="field"><label>Источник</label><input id="u-source"></div>
+        <div class="field"><label>Подлинность</label>
+          <select id="u-original"><option value="true">Оригинал</option><option value="false">Копия</option></select>
+        </div>
+      </div>
+      <div class="field"><label>Описание</label><textarea id="u-desc" style="min-height:50px"></textarea></div>
+      <div class="row2">
+        <div class="field"><label>Спектакли</label><div class="multiselect" id="u-prods">${prodChecks}</div></div>
+        <div class="field"><label>Персоны</label><div class="multiselect" id="u-pers">${persChecks}</div></div>
+      </div>
+      <div class="progress" id="u-prog"><div class="fill" id="u-fill"></div></div>
+      <div style="display:flex;gap:6px;margin-top:0.65rem">
+        <button class="btn" onclick="uploadDocument(${entityType?`'${entityType}'`:null},${entityId||null},${caseId||null})">Загрузить</button>
+        <button class="btn-sm" onclick="document.getElementById('doc-upload-area').innerHTML=''">Отмена</button>
+      </div>
+    </div>`;
+  uploadFile = null;
+}
+
+function selectFile(file) {
+  uploadFile = file;
+  const el = document.getElementById('sel-file-name');
+  if (el) el.textContent = file ? file.name : 'Файл не выбран';
+}
+
+function handleDrop(event) {
+  event.preventDefault();
+  document.getElementById('drop-z')?.classList.remove('drag');
+  selectFile(event.dataTransfer.files[0]);
+}
+
+async function uploadDocument(entityType, entityId, caseId) {
+  if (!uploadFile) { toast('Выберите файл', true); return; }
+  const prog = document.getElementById('u-prog');
+  const fill = document.getElementById('u-fill');
+  if (prog) { prog.style.display='block'; fill.style.width='40%'; }
+
+  const prodIds = entityType==='production' ? [entityId] : getChecked('u-prods');
+  const persIds = entityType==='person' ? [entityId] : getChecked('u-pers');
+
+  // Определяем опись по текущей вкладке
+  const inv = allInventories.find(i => i.id === currentInvId);
+  const invId = inv ? inv.id : '';
+
+  const formData = new FormData();
+  formData.append('file', uploadFile);
+  formData.append('title', document.getElementById('u-title').value.trim() || uploadFile.name.replace(/\.[^.]+$/,''));
+  formData.append('doc_type', document.getElementById('u-type').value);
+  formData.append('author', document.getElementById('u-author').value.trim());
+  formData.append('date_created', document.getElementById('u-date').value);
+  formData.append('source', document.getElementById('u-source').value.trim());
+  formData.append('is_original', document.getElementById('u-original').value);
+  formData.append('description', document.getElementById('u-desc').value.trim());
+  formData.append('production_ids', JSON.stringify(prodIds));
+  formData.append('person_ids', JSON.stringify(persIds));
+  formData.append('inventory_id', invId);
+  formData.append('case_id', currentCaseId || caseId || '');
+
+  const res = await fetch(`${API}/upload/document`, {method:'POST', body:formData});
+  const data = await res.json();
+
+  if (fill) { fill.style.width='100%'; setTimeout(()=>{ if(prog) prog.style.display='none'; },500); }
+
+  if (data.status==='ok') {
+    toast(`Загружено · ${data.archive_ref||''}`);
+    uploadFile = null;
+
+
+    await selectCase(currentCaseId);
+  } else {
+    toast('Ошибка загрузки', true);
+  }
+}
+
+// ========================
+// УТИЛИТЫ
+// ========================
+
+function toast(msg, isErr) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (isErr?' err':'');
+  setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
