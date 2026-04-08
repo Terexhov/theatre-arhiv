@@ -142,6 +142,7 @@
     .case-modal-header button { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: #888; }
     .case-modal-body { padding: 1.1rem 1.3rem; overflow-y: auto; flex: 1; }
     .case-ref { font-family: monospace; font-size: 0.75rem; color: #888; margin-bottom: 1rem; }
+    .section-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: #888; font-family: sans-serif; margin-bottom: 0.45rem; padding-bottom: 0.3rem; border-bottom: 1px solid #e0ddd8; }
   </style>
 </head>
 <body>
@@ -282,10 +283,17 @@ async function selectInventory(invId, title) {
   renderCaseList(currentCases);
 }
 
+function caseYear(c) {
+  const d = c.effective_date_from || c.effective_date_to || c.date_from || c.date_to;
+  return d ? new Date(d).getFullYear() : null;
+}
+
 function renderYearFilterBar(cases) {
   const bar = document.getElementById('year-filter-bar');
   const years = new Set();
   cases.forEach(c => {
+    if (c.effective_date_from) years.add(new Date(c.effective_date_from).getFullYear());
+    if (c.effective_date_to) years.add(new Date(c.effective_date_to).getFullYear());
     if (c.date_from) years.add(new Date(c.date_from).getFullYear());
     if (c.date_to) years.add(new Date(c.date_to).getFullYear());
   });
@@ -307,8 +315,8 @@ function renderCaseList(allCases) {
   let cases = allCases;
   if (activeYear !== null) {
     cases = allCases.filter(c => {
-      const from = c.date_from ? new Date(c.date_from).getFullYear() : null;
-      const to = c.date_to ? new Date(c.date_to).getFullYear() : null;
+      const from = c.effective_date_from ? new Date(c.effective_date_from).getFullYear() : (c.date_from ? new Date(c.date_from).getFullYear() : null);
+      const to = c.effective_date_to ? new Date(c.effective_date_to).getFullYear() : (c.date_to ? new Date(c.date_to).getFullYear() : null);
       return from === activeYear || to === activeYear;
     });
   }
@@ -353,6 +361,7 @@ async function openCaseModal(caseId) {
   const data = await r.json();
   const c = data.case;
   const units = data.units || [];
+  const productions = data.productions || [];
 
   document.getElementById('cm-title').textContent = c.title;
 
@@ -361,12 +370,26 @@ async function openCaseModal(caseId) {
   let html = `<div class="case-ref">${ref} · ${c.inv_title}</div>`;
   if (c.description) html += `<p style="font-size:0.88rem;margin-bottom:1rem;line-height:1.6;color:#555">${c.description}</p>`;
 
-  if (!units.length) {
-    html += '<p style="color:#aaa;font-size:0.85rem;font-family:sans-serif">Нет единиц хранения</p>';
-  } else {
-    html += `<div style="font-size:0.68rem;text-transform:uppercase;letter-spacing:0.08em;color:#888;font-family:sans-serif;margin-bottom:0.5rem">Единицы хранения (${units.length})</div>`;
+  if (productions.length) {
+    html += `<div class="section-label">Спектакли и проекты (${productions.length})</div>`;
+    productions.forEach(p => {
+      const year = p.premiere_date ? new Date(p.premiere_date).getFullYear() : '';
+      html += `<div style="display:flex;align-items:center;gap:10px;padding:0.55rem 0.75rem;border:1px solid #e0ddd8;background:white;margin-bottom:3px;cursor:pointer;transition:border-color 0.15s"
+        onmouseover="this.style.borderColor='#1a1a1a'" onmouseout="this.style.borderColor='#e0ddd8'"
+        onclick="closeCaseModal();openDetail('production',${p.id})">
+        <span style="font-size:1.1rem">🎭</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:0.88rem">«${p.title}»</div>
+          <div style="font-size:0.7rem;color:#aaa;font-family:sans-serif">${p.theater_name||''} ${p.genre ? '· '+p.genre : ''} ${year ? '· '+year : ''}</div>
+        </div>
+        <span style="font-size:0.75rem;color:#aaa">→</span>
+      </div>`;
+    });
+  }
+
+  if (units.length) {
+    html += `<div class="section-label" style="margin-top:${productions.length?'1rem':'0'}">Документы (${units.length})</div>`;
     units.forEach(u => {
-      const hasFile = u.file_path;
       const isImg = isImage(u.file_path);
       html += `<div style="display:flex;align-items:center;gap:10px;padding:0.5rem 0.75rem;border:1px solid #e0ddd8;background:white;margin-bottom:3px;cursor:pointer;transition:border-color 0.15s"
         onmouseover="this.style.borderColor='#1a1a1a'" onmouseout="this.style.borderColor='#e0ddd8'"
@@ -380,6 +403,10 @@ async function openCaseModal(caseId) {
         <span style="font-size:0.65rem;font-family:monospace;color:#ccc">${u.archive_ref||''}</span>
       </div>`;
     });
+  }
+
+  if (!productions.length && !units.length) {
+    html += '<p style="color:#aaa;font-size:0.85rem;font-family:sans-serif;margin-top:0.5rem">Нет материалов</p>';
   }
 
   document.getElementById('cm-body').innerHTML = html;

@@ -302,6 +302,8 @@ function renderYearFilters(cases) {
   const yf = document.getElementById('year-filters');
   const years = new Set();
   cases.forEach(c => {
+    if (c.effective_date_from) years.add(new Date(c.effective_date_from).getFullYear());
+    if (c.effective_date_to) years.add(new Date(c.effective_date_to).getFullYear());
     if (c.date_from) years.add(new Date(c.date_from).getFullYear());
     if (c.date_to) years.add(new Date(c.date_to).getFullYear());
   });
@@ -323,8 +325,8 @@ function renderCases(allCases) {
   let cases = allCases;
   if (activeYear !== null) {
     cases = allCases.filter(c => {
-      const from = c.date_from ? new Date(c.date_from).getFullYear() : null;
-      const to = c.date_to ? new Date(c.date_to).getFullYear() : null;
+      const from = c.effective_date_from ? new Date(c.effective_date_from).getFullYear() : (c.date_from ? new Date(c.date_from).getFullYear() : null);
+      const to = c.effective_date_to ? new Date(c.effective_date_to).getFullYear() : (c.date_to ? new Date(c.date_to).getFullYear() : null);
       return from === activeYear || to === activeYear;
     });
   }

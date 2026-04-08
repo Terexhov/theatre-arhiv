@@ -133,7 +133,16 @@ async def list_inventories():
     try:
         rows = await db.fetch("""
             SELECT i.*, f.code as fund_code, f.name as fund_name,
-                   (SELECT COUNT(*) FROM cases c WHERE c.inventory_id = i.id) as cases_count
+                   (SELECT COUNT(*) FROM cases c WHERE c.inventory_id = i.id) as cases_count,
+                   (SELECT ARRAY_AGG(DISTINCT EXTRACT(YEAR FROM eff)::INT ORDER BY EXTRACT(YEAR FROM eff)::INT)
+                    FROM (
+                      SELECT COALESCE(c.date_from, (SELECT MIN(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id)) as eff
+                      FROM cases c WHERE c.inventory_id = i.id
+                      UNION ALL
+                      SELECT COALESCE(c.date_to, (SELECT MAX(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id)) as eff
+                      FROM cases c WHERE c.inventory_id = i.id
+                    ) sub WHERE eff IS NOT NULL
+                   ) as years
             FROM inventories i
             JOIN funds f ON f.id = i.fund_id
             ORDER BY i.number::INT
@@ -155,7 +164,13 @@ async def get_inventory(inventory_id: int):
             return resp({"error": "не найдено"})
         cases = await db.fetch("""
             SELECT c.*,
-                   (SELECT COUNT(*) FROM archive_units au WHERE au.case_id = c.id) as units_count
+                   (SELECT COUNT(*) FROM archive_units au WHERE au.case_id = c.id) as units_count,
+                   COALESCE(c.date_from,
+                     (SELECT MIN(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id AND p.premiere_date IS NOT NULL)
+                   ) as effective_date_from,
+                   COALESCE(c.date_to,
+                     (SELECT MAX(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id AND p.premiere_date IS NOT NULL)
+                   ) as effective_date_to
             FROM cases c
             WHERE c.inventory_id = $1
             ORDER BY c.title
@@ -187,13 +202,19 @@ async def get_case(case_id: int):
             WHERE au.case_id = $1
             ORDER BY au.unit_number::INT
         """, case_id)
+        productions = await db.fetch("""
+            SELECT id, title, subtitle, theater_name, season, premiere_date, genre, playwright, description
+            FROM productions
+            WHERE inventory_case_id = $1
+            ORDER BY premiere_date NULLS LAST, title
+        """, case_id)
         result = []
         for r in units:
             d = dict(r)
             if d.get("file_path"):
                 d["url"] = public_url(d["file_path"])
             result.append(d)
-        return resp({"case": dict(case), "units": result})
+        return resp({"case": dict(case), "units": result, "productions": [dict(p) for p in productions]})
     finally:
         await db.close()
 
