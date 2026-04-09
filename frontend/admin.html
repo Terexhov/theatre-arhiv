@@ -482,19 +482,21 @@ function renderCaseContent(d) {
   const inv = allInventories.find(i => i.id === currentInvId);
   const ref = `${c.fund_code} Оп.${c.inv_number} Д.${c.number}`;
 
-  // Определяем тип дела по описи
-  const invNum = inv ? parseInt(inv.number) : 0;
+  // Определяем тип дела по заголовку описи
+  const invTitle = inv ? inv.title.toLowerCase() : '';
+  const isTheater = invTitle.includes('театр');
+  const isPersons = invTitle.includes('персонал') || invTitle.includes('личное');
 
   let html = `<h2>${c.title} <span class="case-ref">${ref}</span></h2>`;
 
   if (c.description) html += `<p style="font-size:0.85rem;color:#555;margin-bottom:0.85rem;line-height:1.5">${c.description}</p>`;
 
-  // Добавить запись в зависимости от описи
-  if (invNum === 1) {
+  // Добавить запись в зависимости от типа описи
+  if (isTheater) {
     // Театральные проекты — показываем форму спектакля или список
     html += renderProjectsInCase(units, caseId=c.id);
-  } else if (invNum === 2) {
-    // Персоналии
+  } else if (isPersons) {
+    // Персоналии / Личное
     html += renderPersonsInCase(units, caseId=c.id);
   } else {
     // Остальные — документы
