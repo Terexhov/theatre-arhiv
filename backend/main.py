@@ -136,11 +136,19 @@ async def list_inventories():
                    (SELECT COUNT(*) FROM cases c WHERE c.inventory_id = i.id) as cases_count,
                    (SELECT ARRAY_AGG(DISTINCT EXTRACT(YEAR FROM eff)::INT ORDER BY EXTRACT(YEAR FROM eff)::INT)
                     FROM (
-                      SELECT COALESCE(c.date_from, (SELECT MIN(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id)) as eff
-                      FROM cases c WHERE c.inventory_id = i.id
+                      SELECT c.date_from as eff FROM cases c WHERE c.inventory_id = i.id AND c.date_from IS NOT NULL
                       UNION ALL
-                      SELECT COALESCE(c.date_to, (SELECT MAX(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id)) as eff
-                      FROM cases c WHERE c.inventory_id = i.id
+                      SELECT c.date_to   as eff FROM cases c WHERE c.inventory_id = i.id AND c.date_to IS NOT NULL
+                      UNION ALL
+                      SELECT p.premiere_date as eff
+                      FROM cases c JOIN productions p ON p.inventory_case_id = c.id
+                      WHERE c.inventory_id = i.id AND p.premiere_date IS NOT NULL
+                      UNION ALL
+                      SELECT d.date_created as eff
+                      FROM cases c
+                      JOIN archive_units au ON au.case_id = c.id AND au.object_type = 'document'
+                      JOIN documents d ON d.id = au.object_id
+                      WHERE c.inventory_id = i.id AND d.date_created IS NOT NULL
                     ) sub WHERE eff IS NOT NULL
                    ) as years
             FROM inventories i
@@ -165,11 +173,15 @@ async def get_inventory(inventory_id: int):
         cases = await db.fetch("""
             SELECT c.*,
                    (SELECT COUNT(*) FROM archive_units au WHERE au.case_id = c.id) as units_count,
-                   COALESCE(c.date_from,
-                     (SELECT MIN(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id AND p.premiere_date IS NOT NULL)
+                   COALESCE(
+                     c.date_from,
+                     (SELECT MIN(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id AND p.premiere_date IS NOT NULL),
+                     (SELECT MIN(d.date_created) FROM archive_units au JOIN documents d ON d.id = au.object_id WHERE au.case_id = c.id AND au.object_type = 'document' AND d.date_created IS NOT NULL)
                    ) as effective_date_from,
-                   COALESCE(c.date_to,
-                     (SELECT MAX(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id AND p.premiere_date IS NOT NULL)
+                   COALESCE(
+                     c.date_to,
+                     (SELECT MAX(p.premiere_date) FROM productions p WHERE p.inventory_case_id = c.id AND p.premiere_date IS NOT NULL),
+                     (SELECT MAX(d.date_created) FROM archive_units au JOIN documents d ON d.id = au.object_id WHERE au.case_id = c.id AND au.object_type = 'document' AND d.date_created IS NOT NULL)
                    ) as effective_date_to
             FROM cases c
             WHERE c.inventory_id = $1
