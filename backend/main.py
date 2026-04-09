@@ -127,6 +127,29 @@ async def list_funds():
     finally:
         await db.close()
 
+class InventoryIn(BaseModel):
+    fund_id: int
+    number: Optional[str] = None
+    title: str
+    description: Optional[str] = None
+
+@app.post("/archive/inventories", tags=["archive"], summary="Создать опись")
+async def create_inventory(inv: InventoryIn):
+    db = await get_db()
+    try:
+        if not inv.number:
+            max_num = await db.fetchval(
+                "SELECT COALESCE(MAX(number::INT), 0) FROM inventories WHERE fund_id=$1 AND number ~ '^[0-9]+$'",
+                inv.fund_id)
+            inv.number = str(max_num + 1)
+        row = await db.fetchrow("""
+            INSERT INTO inventories (fund_id, number, title, description)
+            VALUES ($1,$2,$3,$4) RETURNING id
+        """, inv.fund_id, inv.number, inv.title, inv.description)
+        return resp({"id": row["id"], "status": "ok"})
+    finally:
+        await db.close()
+
 @app.get("/archive/inventories", tags=["archive"], summary="Все описи")
 async def list_inventories():
     db = await get_db()
@@ -262,9 +285,9 @@ async def update_case(case_id: int, c: CaseIn):
     db = await get_db()
     try:
         await db.execute("""
-            UPDATE cases SET title=$1, description=$2, date_from=$3, date_to=$4, project_group=$5
-            WHERE id=$6
-        """, c.title, c.description, date_or_none(c.date_from), date_or_none(c.date_to),
+            UPDATE cases SET inventory_id=$1, title=$2, description=$3, date_from=$4, date_to=$5, project_group=$6
+            WHERE id=$7
+        """, c.inventory_id, c.title, c.description, date_or_none(c.date_from), date_or_none(c.date_to),
             c.project_group, case_id)
         return resp({"status": "ok"})
     finally:
