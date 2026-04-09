@@ -316,10 +316,10 @@ function applyConfig(cfg) {
   }
 }
 
-function renderSections(productions) {
-  // Группируем: inventory → case → productions[]
+function renderSections(items) {
+  // Группируем: inventory → case → items[]
   const invMap = {};
-  productions.forEach(p => {
+  items.forEach(p => {
     if (!invMap[p.inventory_id]) {
       invMap[p.inventory_id] = {
         id: p.inventory_id,
@@ -334,10 +334,10 @@ function renderSections(productions) {
         id: p.case_id,
         title: p.case_title,
         group: p.project_group,
-        prods: []
+        items: []
       };
     }
-    inv.cases[p.case_id].prods.push(p);
+    inv.cases[p.case_id].items.push(p);
   });
 
   const inventories = Object.values(invMap).sort((a,b) => a.num - b.num);
@@ -359,8 +359,6 @@ function renderSections(productions) {
       </h2>`;
 
     const cases = Object.values(inv.cases);
-
-    // Если один кейс — не показываем заголовок подгруппы
     const showSubheading = cases.length > 1 || cases[0]?.title;
 
     cases.forEach(cs => {
@@ -371,20 +369,31 @@ function renderSections(productions) {
         html += `<div class="subsection">`;
       }
 
-      cs.prods.sort((a,b) => {
+      cs.items.sort((a,b) => {
         const ya = getYear(a.premiere_date) || 9999;
         const yb = getYear(b.premiere_date) || 9999;
         return ya - yb;
       });
 
-      cs.prods.forEach(p => {
+      cs.items.forEach(p => {
         const year = getYear(p.premiere_date) || '';
-        const meta = [p.genre, p.playwright].filter(Boolean).join(' · ');
-        html += `<div class="project-row" onclick="openPanel(${p.id},'${esc(inv.title)}','${esc(cs.title)}')">
-          <span class="proj-year">${year}</span>
-          <span class="proj-title">«${p.title}»</span>
-          ${meta ? `<span class="proj-meta">${meta}</span>` : ''}
-        </div>`;
+        if (p.item_type === 'production') {
+          const meta = [p.genre, p.playwright].filter(Boolean).join(' · ');
+          html += `<div class="project-row" onclick="openPanel(${p.id},'${esc(inv.title)}','${esc(cs.title)}')">
+            <span class="proj-year">${year}</span>
+            <span class="proj-title">«${p.title}»</span>
+            ${meta ? `<span class="proj-meta">${meta}</span>` : ''}
+          </div>`;
+        } else {
+          // document
+          const isImg = p.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(p.url);
+          html += `<div class="project-row" ${isImg ? `onclick="openLightbox('${p.url}')"` : ''} style="${isImg?'':'cursor:default'}" title="${p.title||''}">
+            <span class="proj-year">${year}</span>
+            ${isImg ? `<img src="${p.url}" alt="${esc(p.title||'')}" style="width:48px;height:36px;object-fit:cover;border:1px solid #e0ddd8;flex-shrink:0">` : `<span style="font-size:1.1rem;flex-shrink:0">${DOC_ICONS[p.doc_type]||'📄'}</span>`}
+            <span class="proj-title">${p.title||p.doc_type||'Документ'}</span>
+            ${p.doc_type ? `<span class="proj-meta">${p.doc_type}</span>` : ''}
+          </div>`;
+        }
       });
 
       html += `</div>`;

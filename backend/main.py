@@ -196,14 +196,14 @@ async def get_case(case_id: int):
         units = await db.fetch("""
             SELECT au.*, d.title as doc_title, d.doc_type, d.file_path,
                    d.archive_ref, d.date_created, d.author, d.description,
-                   d.source, d.is_original, d.id as doc_id
+                   d.source, d.is_original, d.id as doc_id, d.show_on_site
             FROM archive_units au
             LEFT JOIN documents d ON d.id = au.object_id AND au.object_type = 'document'
             WHERE au.case_id = $1
             ORDER BY au.unit_number::INT
         """, case_id)
         productions = await db.fetch("""
-            SELECT id, title, subtitle, theater_name, season, premiere_date, genre, playwright, description
+            SELECT id, title, subtitle, theater_name, season, premiere_date, genre, playwright, description, show_on_site
             FROM productions
             WHERE inventory_case_id = $1
             ORDER BY premiere_date NULLS LAST, title
@@ -275,13 +275,25 @@ async def toggle_production_on_site(production_id: int, show: bool = Query(...))
     finally:
         await db.close()
 
+@app.patch("/documents/{document_id}/show-on-site", tags=["documents"], summary="Переключить показ документа на сайте")
+async def toggle_document_on_site(document_id: int, show: bool = Query(...)):
+    db = await get_db()
+    try:
+        await db.execute("UPDATE documents SET show_on_site=$1 WHERE id=$2", show, document_id)
+        return resp({"status": "ok"})
+    finally:
+        await db.close()
+
 @app.get("/site/data", tags=["archive"], summary="Данные публичного сайта")
 async def get_site_data():
     db = await get_db()
     try:
-        rows = await db.fetch("""
-            SELECT p.id, p.title, p.subtitle, p.premiere_date, p.theater_name,
+        # Спектакли с show_on_site
+        prod_rows = await db.fetch("""
+            SELECT 'production' as item_type,
+                   p.id, p.title, p.subtitle, p.premiere_date, p.theater_name,
                    p.genre, p.playwright, p.description, p.season,
+                   NULL::text as file_path, NULL::text as doc_type, NULL::text as url,
                    c.id as case_id, c.title as case_title, c.project_group,
                    i.id as inventory_id, i.title as inventory_title, i.number as inventory_number
             FROM productions p
@@ -290,7 +302,25 @@ async def get_site_data():
             WHERE p.show_on_site = true
             ORDER BY i.number::INT, c.title, p.premiere_date NULLS LAST, p.title
         """)
-        return resp([dict(r) for r in rows])
+        # Документы с show_on_site
+        doc_rows = await db.fetch("""
+            SELECT 'document' as item_type,
+                   d.id, d.title, NULL::text as subtitle, d.date_created as premiere_date,
+                   NULL::text as theater_name, NULL::text as genre, NULL::text as playwright,
+                   d.description, NULL::text as season,
+                   d.file_path, d.doc_type,
+                   CASE WHEN d.file_path IS NOT NULL THEN $1 || '/' || d.file_path ELSE NULL END as url,
+                   c.id as case_id, c.title as case_title, c.project_group,
+                   i.id as inventory_id, i.title as inventory_title, i.number as inventory_number
+            FROM documents d
+            JOIN archive_units au ON au.object_type='document' AND au.object_id=d.id
+            JOIN cases c ON c.id = au.case_id
+            JOIN inventories i ON i.id = c.inventory_id
+            WHERE d.show_on_site = true
+            ORDER BY i.number::INT, c.title, d.date_created NULLS LAST, d.title
+        """, os.getenv("MEDIA_BASE_URL", "http://178.253.38.120/media"))
+        result = [dict(r) for r in prod_rows] + [dict(r) for r in doc_rows]
+        return resp(result)
     finally:
         await db.close()
 

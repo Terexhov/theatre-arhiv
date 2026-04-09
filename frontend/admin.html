@@ -567,10 +567,18 @@ function renderDocsInCase(units, caseId) {
     html += `<div class="doc-grid">`;
     docs.forEach(u => {
       const icon = DOC_ICONS[u.doc_type] || '📄';
+      const onSite = u.show_on_site || false;
       html += `<div class="doc-card" onclick="openDocForm(${u.doc_id})">
         ${isImage(u.file_path) ? `<img src="${u.url}" alt="">` : `<div class="doc-icon">${icon}</div>`}
         <div class="doc-badge">${u.doc_type||''}</div>
         <button class="doc-del" onclick="event.stopPropagation();deleteDocument(${u.doc_id})">✕</button>
+        <button id="doc-site-toggle-${u.doc_id}"
+          class="prod-site-toggle ${onSite?'on':''}"
+          style="position:absolute;bottom:26px;left:4px;font-size:0.6rem;padding:2px 5px"
+          title="${onSite?'Убрать с сайта':'Показать на сайте'}"
+          onclick="event.stopPropagation();toggleDocumentOnSite(${u.doc_id},${!onSite})">
+          ${onSite ? '●' : '○'}
+        </button>
         <div class="doc-label">${u.doc_title||u.title||''}</div>
       </div>`;
     });
@@ -1014,9 +1022,15 @@ async function uploadDocument(entityType, entityId, caseId) {
 async function toggleProductionOnSite(prodId, show) {
   await fetch(`${API}/productions/${prodId}/show-on-site?show=${show}`, {method:'PATCH'});
   toast(show ? 'Добавлено на сайт' : 'Убрано с сайта');
-  // Обновляем иконку
   const btn = document.getElementById(`site-toggle-${prodId}`);
-  if (btn) { btn.classList.toggle('on', show); btn.title = show ? 'Убрать с сайта' : 'Показать на сайте'; btn.textContent = show ? '● На сайте' : '○ На сайт'; }
+  if (btn) { btn.classList.toggle('on', show); btn.title = show ? 'Убрать с сайта' : 'Показать на сайте'; btn.textContent = show ? '● На сайте' : '○ На сайт'; btn.onclick = () => toggleProductionOnSite(prodId, !show); }
+}
+
+async function toggleDocumentOnSite(docId, show) {
+  await fetch(`${API}/documents/${docId}/show-on-site?show=${show}`, {method:'PATCH'});
+  toast(show ? 'Документ добавлен на сайт' : 'Документ убран с сайта');
+  const btn = document.getElementById(`doc-site-toggle-${docId}`);
+  if (btn) { btn.classList.toggle('on', show); btn.title = show ? 'Убрать с сайта' : 'Показать на сайте'; btn.textContent = show ? '●' : '○'; btn.onclick = (e) => { e.stopPropagation(); toggleDocumentOnSite(docId, !show); }; }
 }
 
 // ========================
