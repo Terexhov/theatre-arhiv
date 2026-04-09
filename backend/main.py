@@ -232,9 +232,10 @@ async def create_case(c: CaseIn):
     db = await get_db()
     try:
         if not c.number:
-            row_count = await db.fetchval(
-                "SELECT COUNT(*) FROM cases WHERE inventory_id=$1", c.inventory_id)
-            c.number = str(row_count + 1)
+            max_num = await db.fetchval(
+                "SELECT COALESCE(MAX(number::INT), 0) FROM cases WHERE inventory_id=$1 AND number ~ '^[0-9]+$'",
+                c.inventory_id)
+            c.number = str(max_num + 1)
         row = await db.fetchrow("""
             INSERT INTO cases (inventory_id, number, title, description, date_from, date_to, project_group)
             VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id
