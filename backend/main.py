@@ -266,23 +266,68 @@ async def toggle_show_on_site(case_id: int, show: bool = Query(...)):
     finally:
         await db.close()
 
+@app.patch("/productions/{production_id}/show-on-site", tags=["productions"], summary="Переключить показ спектакля на сайте")
+async def toggle_production_on_site(production_id: int, show: bool = Query(...)):
+    db = await get_db()
+    try:
+        await db.execute("UPDATE productions SET show_on_site=$1 WHERE id=$2", show, production_id)
+        return resp({"status": "ok"})
+    finally:
+        await db.close()
+
 @app.get("/site/data", tags=["archive"], summary="Данные публичного сайта")
 async def get_site_data():
     db = await get_db()
     try:
         rows = await db.fetch("""
-            SELECT c.id, c.title, c.description, c.date_from, c.date_to,
-                   c.project_group, c.number,
-                   i.id as inventory_id, i.title as inventory_title, i.number as inventory_number,
-                   f.code as fund_code, f.name as fund_name,
-                   (SELECT COUNT(*) FROM archive_units au WHERE au.case_id = c.id) as units_count
-            FROM cases c
+            SELECT p.id, p.title, p.subtitle, p.premiere_date, p.theater_name,
+                   p.genre, p.playwright, p.description, p.season,
+                   c.id as case_id, c.title as case_title, c.project_group,
+                   i.id as inventory_id, i.title as inventory_title, i.number as inventory_number
+            FROM productions p
+            JOIN cases c ON c.id = p.inventory_case_id
             JOIN inventories i ON i.id = c.inventory_id
-            JOIN funds f ON f.id = i.fund_id
-            WHERE c.show_on_site = true
-            ORDER BY i.number::INT, c.project_group NULLS LAST, c.date_from NULLS LAST, c.title
+            WHERE p.show_on_site = true
+            ORDER BY i.number::INT, c.title, p.premiere_date NULLS LAST, p.title
         """)
         return resp([dict(r) for r in rows])
+    finally:
+        await db.close()
+
+@app.get("/site/config", tags=["archive"], summary="Конфиг публичного сайта")
+async def get_site_config():
+    db = await get_db()
+    try:
+        rows = await db.fetch("SELECT key, value FROM site_config")
+        return resp({r["key"]: r["value"] for r in rows})
+    finally:
+        await db.close()
+
+@app.put("/site/config", tags=["archive"], summary="Обновить конфиг сайта")
+async def update_site_config(data: dict):
+    db = await get_db()
+    try:
+        for key, value in data.items():
+            await db.execute(
+                "INSERT INTO site_config (key,value) VALUES ($1,$2) ON CONFLICT (key) DO UPDATE SET value=$2",
+                key, str(value)
+            )
+        return resp({"status": "ok"})
+    finally:
+        await db.close()
+
+@app.post("/site/upload-photo", tags=["archive"], summary="Загрузить фото для сайта")
+async def upload_site_photo(file: UploadFile = File(...)):
+    file_bytes = await file.read()
+    file_path = save_file(file_bytes, file.filename)
+    url = public_url(file_path)
+    db = await get_db()
+    try:
+        await db.execute(
+            "INSERT INTO site_config (key,value) VALUES ('hero_photo',$1) ON CONFLICT (key) DO UPDATE SET value=$1",
+            url
+        )
+        return resp({"url": url, "status": "ok"})
     finally:
         await db.close()
 

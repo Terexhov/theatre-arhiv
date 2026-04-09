@@ -182,6 +182,38 @@
     .toast.show { opacity: 1; }
     .toast.err { background: #c00; }
 
+    /* Переключатель "на сайт" у спектаклей */
+    .prod-site-toggle {
+      display: inline-flex; align-items: center; gap: 5px;
+      font-size: 0.68rem; font-family: sans-serif; color: #aaa;
+      cursor: pointer; padding: 3px 6px; border: 1px solid #e0ddd8;
+      background: white; transition: all 0.12s; flex-shrink: 0;
+    }
+    .prod-site-toggle:hover { border-color: #999; }
+    .prod-site-toggle.on { background: #1a7a3a; color: white; border-color: #1a7a3a; }
+    .prod-site-toggle input { display: none; }
+
+    /* Редактор сайта */
+    .site-editor-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 300;
+    }
+    .site-editor-overlay.open { display: flex; align-items: center; justify-content: center; }
+    .site-editor {
+      background: white; width: 680px; max-width: 96vw;
+      max-height: 90vh; display: flex; flex-direction: column;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    }
+    .site-editor-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.8rem 1.2rem; border-bottom: 1px solid #e0ddd8; flex-shrink: 0;
+    }
+    .site-editor-header h3 { font-size: 0.88rem; font-weight: 500; }
+    .site-editor-header button { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #888; }
+    .site-editor-body { padding: 1.2rem; overflow-y: auto; flex: 1; }
+    .site-photo-preview { width: 120px; aspect-ratio: 3/4; object-fit: cover; border: 1px solid #e0ddd8; display: block; margin-bottom: 0.65rem; background: #f0ede8; }
+    .site-photo-placeholder { width: 120px; aspect-ratio: 3/4; background: #f0ede8; border: 1px solid #e0ddd8; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: #aaa; font-family: sans-serif; margin-bottom: 0.65rem; cursor: pointer; }
+
     /* Мобильная адаптация */
     @media (max-width: 700px) {
       .layout { flex-direction: column; height: auto; }
@@ -197,7 +229,9 @@
 
 <div class="nav-top">
   <h1>Архив Боякова — Админка</h1>
-  <a href="index.html" target="_blank">→ Сайт</a>
+  <a href="index.html" target="_blank">→ Архив</a>
+  <a href="site.html" target="_blank">→ Сайт</a>
+  <a href="#" onclick="showSiteEditor();return false" id="nav-site-btn" style="color:rgba(255,255,255,0.5);text-decoration:none;font-size:0.75rem;padding:0 0.75rem;height:46px;display:flex;align-items:center">⚙ Ред. сайта</a>
 </div>
 
 <div class="inv-tabs" id="inv-tabs">
@@ -226,6 +260,35 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Редактор сайта-визитки -->
+<div class="site-editor-overlay" id="site-editor-overlay">
+  <div class="site-editor">
+    <div class="site-editor-header">
+      <h3>Редактор сайта-визитки</h3>
+      <button onclick="closeSiteEditor()">✕</button>
+    </div>
+    <div class="site-editor-body">
+      <div class="field">
+        <label>Фото (загрузить)</label>
+        <div id="se-photo-wrap" onclick="document.getElementById('se-photo-file').click()" style="cursor:pointer">
+          <div class="site-photo-placeholder" id="se-photo-placeholder">Нажмите для загрузки</div>
+        </div>
+        <input type="file" id="se-photo-file" accept="image/*" style="display:none" onchange="uploadSitePhoto(this)">
+      </div>
+      <div class="field"><label>Имя (заголовок)</label><input id="se-title" placeholder="Эдуард Бояков"></div>
+      <div class="field"><label>Подзаголовок (должность)</label><input id="se-subtitle" placeholder="Режиссёр · Театральный деятель"></div>
+      <div class="field"><label>Дата рождения</label><input id="se-born" placeholder="6 июня 1964"></div>
+      <div class="field"><label>Деятельность</label><input id="se-roles" placeholder="Режиссёр, продюсер, театральный деятель"></div>
+      <div class="field"><label>Биография (абзацы разделяйте пустой строкой)</label><textarea id="se-bio" style="min-height:140px"></textarea></div>
+      <div class="form-actions">
+        <button class="btn" onclick="saveSiteConfig()">Сохранить</button>
+        <button class="btn-outline" onclick="closeSiteEditor()">Отмена</button>
+        <a class="btn-outline" href="site.html" target="_blank" style="text-decoration:none;display:inline-flex;align-items:center">Открыть сайт ↗</a>
+      </div>
+    </div>
+  </div>
+</div>
 
 <script>
 const API = 'http://178.253.38.120/api';
@@ -449,12 +512,18 @@ function renderProjectsInCase(units, caseId) {
   if (linkedProds.length) {
     html += `<div class="section-title">Спектакли и проекты</div>`;
     html += linkedProds.map(p => `
-      <div style="display:flex;align-items:center;gap:8px;padding:0.45rem 0.75rem;border:1px solid #e0ddd8;background:white;margin-bottom:3px;cursor:pointer" onclick="openProductionForm(${p.id})">
-        <div style="flex:1">
+      <div style="display:flex;align-items:center;gap:8px;padding:0.45rem 0.75rem;border:1px solid #e0ddd8;background:white;margin-bottom:3px;">
+        <div style="flex:1;cursor:pointer" onclick="openProductionForm(${p.id})">
           <div style="font-size:0.85rem">«${p.title}»</div>
           <div style="font-size:0.7rem;color:#aaa">${p.theater_name||''} ${p.season ? '· '+p.season : ''}</div>
         </div>
-        <span style="font-size:0.7rem;color:#aaa">→</span>
+        <button id="site-toggle-${p.id}"
+          class="prod-site-toggle ${p.show_on_site?'on':''}"
+          title="${p.show_on_site?'Убрать с сайта':'Показать на сайте'}"
+          onclick="toggleProductionOnSite(${p.id},${!p.show_on_site})">
+          ${p.show_on_site ? '● На сайте' : '○ На сайт'}
+        </button>
+        <span style="font-size:0.7rem;color:#aaa;cursor:pointer" onclick="openProductionForm(${p.id})">→</span>
       </div>`).join('');
   }
 
@@ -941,6 +1010,71 @@ async function uploadDocument(entityType, entityId, caseId) {
 // ========================
 // УТИЛИТЫ
 // ========================
+
+async function toggleProductionOnSite(prodId, show) {
+  await fetch(`${API}/productions/${prodId}/show-on-site?show=${show}`, {method:'PATCH'});
+  toast(show ? 'Добавлено на сайт' : 'Убрано с сайта');
+  // Обновляем иконку
+  const btn = document.getElementById(`site-toggle-${prodId}`);
+  if (btn) { btn.classList.toggle('on', show); btn.title = show ? 'Убрать с сайта' : 'Показать на сайте'; btn.textContent = show ? '● На сайте' : '○ На сайт'; }
+}
+
+// ========================
+// РЕДАКТОР САЙТА
+// ========================
+let siteConfig = {};
+
+async function showSiteEditor() {
+  const r = await fetch(`${API}/site/config`);
+  siteConfig = await r.json();
+  document.getElementById('se-title').value   = siteConfig.hero_title || '';
+  document.getElementById('se-subtitle').value= siteConfig.hero_subtitle || '';
+  document.getElementById('se-born').value    = siteConfig.hero_born || '';
+  document.getElementById('se-roles').value   = siteConfig.hero_roles || '';
+  document.getElementById('se-bio').value     = siteConfig.hero_bio || '';
+  const wrap = document.getElementById('se-photo-wrap');
+  if (siteConfig.hero_photo) {
+    wrap.innerHTML = `<img class="site-photo-preview" src="${siteConfig.hero_photo}" alt="">`;
+  } else {
+    wrap.innerHTML = `<div class="site-photo-placeholder" id="se-photo-placeholder">Нажмите для загрузки</div>`;
+  }
+  wrap.onclick = () => document.getElementById('se-photo-file').click();
+  document.getElementById('site-editor-overlay').classList.add('open');
+}
+
+function closeSiteEditor() {
+  document.getElementById('site-editor-overlay').classList.remove('open');
+}
+
+async function uploadSitePhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await fetch(`${API}/site/upload-photo`, {method:'POST', body:fd});
+  const d = await r.json();
+  if (d.url) {
+    siteConfig.hero_photo = d.url;
+    const wrap = document.getElementById('se-photo-wrap');
+    wrap.innerHTML = `<img class="site-photo-preview" src="${d.url}" alt="">`;
+    wrap.onclick = () => document.getElementById('se-photo-file').click();
+    toast('Фото загружено');
+  }
+}
+
+async function saveSiteConfig() {
+  const data = {
+    hero_title:    document.getElementById('se-title').value.trim(),
+    hero_subtitle: document.getElementById('se-subtitle').value.trim(),
+    hero_born:     document.getElementById('se-born').value.trim(),
+    hero_roles:    document.getElementById('se-roles').value.trim(),
+    hero_bio:      document.getElementById('se-bio').value.trim(),
+    hero_photo:    siteConfig.hero_photo || '',
+  };
+  await fetch(`${API}/site/config`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+  toast('Сайт обновлён');
+  closeSiteEditor();
+}
 
 function toast(msg, isErr) {
   const t = document.getElementById('toast');
