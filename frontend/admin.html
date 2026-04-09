@@ -485,7 +485,7 @@ function renderCaseContent(d) {
   // Определяем тип дела по заголовку описи
   const invTitle = inv ? inv.title.toLowerCase() : '';
   const isTheater = invTitle.includes('театр');
-  const isPersons = invTitle.includes('персонал') || invTitle.includes('личное');
+  const isPersons = invTitle.includes('персонал') || invTitle.includes('личное') || invTitle.includes('персоналии');
 
   let html = `<h2>${c.title} <span class="case-ref">${ref}</span></h2>`;
 
