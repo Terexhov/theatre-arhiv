@@ -912,7 +912,10 @@ function showNewItemForm() {
   const invTitle = inv ? inv.title.toLowerCase() : '';
   if (invTitle.includes('театр') || invTitle.includes('проект')) openProductionForm(0, currentCaseId);
   else if (invTitle.includes('персонал') || invTitle.includes('персоналии')) openPersonForm(0, currentCaseId);
-  else showDocUpload(currentCaseId);
+  else {
+    if (!currentCaseId) { toast('Сначала выберите дело слева', true); return; }
+    showDocUpload(currentCaseId);
+  }
 }
 
 function renderUploadForm(entityType, entityId, caseId) {
