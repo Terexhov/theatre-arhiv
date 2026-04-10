@@ -387,7 +387,13 @@ function renderSections(items) {
         } else {
           // document
           const isImg = p.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(p.url);
-          html += `<div class="project-row" ${isImg ? `onclick="openLightbox('${p.url}')"` : ''} style="${isImg?'':'cursor:default'}" title="${p.title||''}">
+          const hasFile = !!p.url;
+          const clickAttr = isImg
+            ? `onclick="openLightbox('${p.url}')" style="cursor:pointer"`
+            : hasFile
+              ? `onclick="window.open('${p.url}','_blank')" style="cursor:pointer"`
+              : `style="cursor:default"`;
+          html += `<div class="project-row" ${clickAttr} title="${p.title||''}">
             <span class="proj-year">${year}</span>
             ${isImg ? `<img src="${p.url}" alt="${esc(p.title||'')}" style="width:48px;height:36px;object-fit:cover;border:1px solid #e0ddd8;flex-shrink:0">` : `<span style="font-size:1.1rem;flex-shrink:0">${DOC_ICONS[p.doc_type]||'📄'}</span>`}
             <span class="proj-title">${p.title||p.doc_type||'Документ'}</span>
