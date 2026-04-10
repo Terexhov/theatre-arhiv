@@ -484,7 +484,7 @@ function renderCaseContent(d) {
 
   // Определяем тип дела по заголовку описи
   const invTitle = inv ? inv.title.toLowerCase() : '';
-  const isTheater = invTitle.includes('театр');
+  const isTheater = invTitle.includes('театр') || invTitle.includes('проект');
   const isPersons = invTitle.includes('персонал') || invTitle.includes('личное') || invTitle.includes('персоналии');
 
   let html = `<h2>${c.title} <span class="case-ref">${ref}</span></h2>`;
@@ -909,9 +909,9 @@ function showDocUploadForEntity(entityType, entityId) {
 function showNewItemForm() {
   if (!currentInvId) { toast('Выберите опись', true); return; }
   const inv = allInventories.find(i => i.id === currentInvId);
-  const invNum = inv ? parseInt(inv.number) : 0;
-  if (invNum === 1) openProductionForm(0, currentCaseId);
-  else if (invNum === 2) openPersonForm(0, currentCaseId);
+  const invTitle = inv ? inv.title.toLowerCase() : '';
+  if (invTitle.includes('театр') || invTitle.includes('проект')) openProductionForm(0, currentCaseId);
+  else if (invTitle.includes('персонал') || invTitle.includes('персоналии')) openPersonForm(0, currentCaseId);
   else showDocUpload(currentCaseId);
 }
 
