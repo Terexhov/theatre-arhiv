@@ -242,16 +242,15 @@
   <div class="cases-panel">
     <div class="cases-header">
       <span id="cases-inv-label">Дела</span>
-      <button class="btn-sm" onclick="showNewItemForm()">+ Добавить</button>
+      <button class="btn-sm" onclick="showNewItemForm()">+ Запись</button>
     </div>
     <div class="year-filters" id="year-filters" style="display:none"></div>
     <div class="cases-list" id="cases-list">
       <div class="empty-state">Выберите опись</div>
     </div>
     <div class="new-case-form">
-      <input id="new-case-input" placeholder="Новое дело…" onkeydown="if(event.key==='Enter')createCase()" style="flex:1.5">
-      <input id="new-case-group" placeholder="Группа…" onkeydown="if(event.key==='Enter')createCase()" style="flex:1">
-      <button class="btn" onclick="createCase()">+</button>
+      <input id="new-case-input" placeholder="+ Новое дело…" onkeydown="if(event.key==='Enter')createCase()" style="flex:1.5">
+      <button class="btn" onclick="createCase()" title="Создать дело">↵</button>
     </div>
   </div>
   <div class="content-panel" id="content-panel">
@@ -430,18 +429,17 @@ async function toggleShowOnSite(caseId, show) {
 
 async function createCase() {
   const input = document.getElementById('new-case-input');
-  const groupInput = document.getElementById('new-case-group');
   const title = input.value.trim();
-  const project_group = groupInput ? groupInput.value.trim() || null : null;
-  if (!title || !currentInvId) { toast('Введите название и выберите опись', true); return; }
+  if (!title) { toast('Введите название дела', true); return; }
+  if (!currentInvId) { toast('Выберите опись', true); return; }
   const r = await fetch(`${API}/archive/cases`, {
     method: 'POST', headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({ inventory_id: currentInvId, title, project_group })
+    body: JSON.stringify({ inventory_id: currentInvId, title })
   });
   const data = await r.json();
+  if (data.error) { toast(data.error, true); return; }
   toast('Дело создано');
   input.value = '';
-  if (groupInput) groupInput.value = '';
   delete casesByInv[currentInvId];
   await loadCases(currentInvId);
   // Обновляем описи
