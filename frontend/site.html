@@ -278,6 +278,7 @@ const IMAGE_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.tiff'];
 const DOC_ICONS = {'фотография':'🖼','афиша':'🎭','программка':'📋','видеозапись':'🎬','рецензия':'📝','текст пьесы':'📖','договор':'📑','интервью':'🎙','лекция':'📚','публикация':'📰','концепция':'💡','черновик':'✏️','переписка':'✉️','другое':'📄'};
 function isImage(p) { return p && IMAGE_EXTS.some(e => p.toLowerCase().endsWith(e)); }
 function getYear(d) { return d ? new Date(d).getFullYear() : null; }
+let siteItems = [];
 
 async function init() {
   const [cfg, data] = await Promise.all([
@@ -317,6 +318,7 @@ function applyConfig(cfg) {
 }
 
 function renderSections(items) {
+  siteItems = [];
   // Группируем: inventory → case → items[]
   const invMap = {};
   items.forEach(p => {
@@ -385,20 +387,15 @@ function renderSections(items) {
             ${meta ? `<span class="proj-meta">${meta}</span>` : ''}
           </div>`;
         } else {
-          // document
-          const isImg = p.url && /\.(jpg|jpeg|png|gif|webp)$/i.test(p.url);
-          const hasFile = !!p.url;
-          const clickAttr = isImg
-            ? `onclick="openLightbox('${p.url}')" style="cursor:pointer"`
-            : hasFile
-              ? `onclick="window.open('${p.url}','_blank')" style="cursor:pointer"`
-              : `style="cursor:default"`;
-          html += `<div class="project-row" ${clickAttr} title="${p.title||''}">
+          // document — всегда открываем карточку
+          const itemJson = esc(JSON.stringify(p));
+          html += `<div class="project-row" onclick="openDocPanel(siteItems[${siteItems.length}])" style="cursor:pointer" title="${p.title||''}">
             <span class="proj-year">${year}</span>
-            ${isImg ? `<img src="${p.url}" alt="${esc(p.title||'')}" style="width:48px;height:36px;object-fit:cover;border:1px solid #e0ddd8;flex-shrink:0">` : `<span style="font-size:1.1rem;flex-shrink:0">${DOC_ICONS[p.doc_type]||'📄'}</span>`}
+            <span style="font-size:1.1rem;flex-shrink:0">${DOC_ICONS[p.doc_type]||'📄'}</span>
             <span class="proj-title">${p.title||p.doc_type||'Документ'}</span>
             ${p.doc_type ? `<span class="proj-meta">${p.doc_type}</span>` : ''}
           </div>`;
+          siteItems.push(p);
         }
       });
 
@@ -503,6 +500,49 @@ async function openPanel(prodId, invTitle, caseTitle) {
 function closePanel() {
   document.getElementById('overlay').classList.remove('open');
   document.getElementById('panel').classList.remove('open');
+}
+
+function openDocPanel(item) {
+  document.getElementById('overlay').classList.add('open');
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('panel-breadcrumb').textContent = `${item.inventory_title} › ${item.case_title}`;
+
+  const date = item.premiere_date
+    ? new Date(item.premiere_date).toLocaleDateString('ru-RU', {day:'numeric', month:'long', year:'numeric'})
+    : null;
+  const icon = DOC_ICONS[item.doc_type] || '📄';
+  const isImg = item.url && isImage(item.url);
+
+  let html = `
+    <h2>${item.title || item.doc_type || 'Документ'}</h2>
+    <div class="panel-sub">${[item.doc_type, date].filter(Boolean).join(' · ')}</div>`;
+
+  if (isImg) {
+    html += `<div style="margin:1rem 0;text-align:center">
+      <img src="${item.url}" alt="${item.title||''}"
+        style="max-width:100%;max-height:60vh;object-fit:contain;cursor:zoom-in;border:1px solid var(--rule)"
+        onclick="openLightbox('${item.url}')">
+    </div>`;
+  }
+
+  if (item.description) {
+    html += `<hr class="panel-divider"><p style="font-size:0.9rem;line-height:1.7;color:#444">${item.description}</p>`;
+  }
+
+  html += `<hr class="panel-divider">`;
+  if (date) html += `<div class="dl-block"><dt>Дата</dt><dd>${date}</dd></div>`;
+  if (item.doc_type) html += `<div class="dl-block"><dt>Тип</dt><dd>${icon} ${item.doc_type}</dd></div>`;
+  if (item.case_title) html += `<div class="dl-block"><dt>Дело</dt><dd>${item.case_title}</dd></div>`;
+
+  if (item.url && !isImg) {
+    html += `<hr class="panel-divider">
+      <a href="${item.url}" target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;gap:6px;padding:0.5rem 1rem;background:#1a1a1a;color:white;font-family:sans-serif;font-size:0.82rem;text-decoration:none">
+        ↓ Открыть файл
+      </a>`;
+  }
+
+  document.getElementById('panel-body').innerHTML = html;
 }
 
 function openLightbox(url) {
