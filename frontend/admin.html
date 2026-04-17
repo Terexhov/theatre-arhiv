@@ -474,6 +474,45 @@ async function selectCase(caseId) {
 // СОДЕРЖИМОЕ ДЕЛА
 // ========================
 
+function toggleCaseDescEdit() {
+  const edit = document.getElementById('case-desc-edit');
+  const view = document.getElementById('case-desc-view');
+  if (!edit) return;
+  const open = edit.style.display === 'none';
+  edit.style.display = open ? 'block' : 'none';
+  view.style.display = open ? 'none' : 'block';
+  if (open) document.getElementById('f-case-desc').focus();
+}
+
+async function saveCaseDescription(caseId, invId) {
+  const desc = document.getElementById('f-case-desc').value.trim() || null;
+  const caseData = currentCaseData?.case;
+  if (!caseData) return;
+
+  const body = {
+    inventory_id: invId,
+    title: caseData.title,
+    description: desc,
+    date_from: caseData.date_from || null,
+    date_to: caseData.date_to || null,
+    project_group: caseData.project_group || null,
+  };
+
+  const r = await fetch(`${API}/archive/cases/${caseId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (r.ok) {
+    toast('Описание сохранено');
+    // Обновляем currentCaseData и перерендериваем
+    currentCaseData.case.description = desc;
+    renderCaseContent(currentCaseData);
+  } else {
+    toast('Ошибка сохранения', true);
+  }
+}
+
 function renderCaseContent(d) {
   const c = d.case;
   const units = d.units || [];
@@ -485,9 +524,26 @@ function renderCaseContent(d) {
   const isTheater = invTitle.includes('театр') || invTitle.includes('проект');
   const isPersons = invTitle.includes('персонал') || invTitle.includes('личное') || invTitle.includes('персоналии');
 
-  let html = `<h2>${c.title} <span class="case-ref">${ref}</span></h2>`;
-
-  if (c.description) html += `<p style="font-size:0.85rem;color:#555;margin-bottom:0.85rem;line-height:1.5">${c.description}</p>`;
+  let html = `
+    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:0.5rem">
+      <h2 style="margin:0">${c.title} <span class="case-ref">${ref}</span></h2>
+      <button class="btn-sm btn-outline" onclick="toggleCaseDescEdit(${c.id},${currentInvId})"
+        style="flex-shrink:0;font-size:0.68rem">✏ Описание</button>
+    </div>
+    <div id="case-desc-view">
+      ${c.description
+        ? `<p style="font-size:0.85rem;color:#555;margin-bottom:0.85rem;line-height:1.5">${c.description}</p>`
+        : `<p style="font-size:0.78rem;color:#bbb;margin-bottom:0.85rem;font-family:sans-serif;font-style:italic">Описание не добавлено</p>`}
+    </div>
+    <div id="case-desc-edit" style="display:none;margin-bottom:1rem">
+      <textarea id="f-case-desc" rows="4"
+        style="width:100%;font-size:0.85rem;padding:0.5rem;border:1px solid #ccc;resize:vertical;font-family:Georgia,serif;line-height:1.6"
+        placeholder="Описание театра или дела…">${(c.description||'').replace(/</g,'&lt;')}</textarea>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn" onclick="saveCaseDescription(${c.id},${currentInvId})">Сохранить</button>
+        <button class="btn-outline" onclick="toggleCaseDescEdit()">Отмена</button>
+      </div>
+    </div>`;
 
   // Добавить запись в зависимости от типа описи
   if (isTheater) {
@@ -609,12 +665,23 @@ async function openProductionForm(id, caseId) {
 
   const personOptions = allPersons.map(a=>`<option value="${a.id}">${a.last_name} ${a.first_name||''}</option>`).join('');
 
+  // Собираем уникальные названия театров из всех спектаклей
+  const knownTheaters = [...new Set(
+    (Array.isArray(allProductions) ? allProductions : [])
+      .map(p => p.theater_name).filter(Boolean)
+  )].sort((a,b) => a.localeCompare(b,'ru'));
+  const theaterOptions = knownTheaters.map(t => `<option value="${t}">`).join('');
+
   document.getElementById('content-panel').innerHTML = `
     <h2>${id ? '«'+prod.title+'»' : 'Новый спектакль'} <span class="case-ref">${id ? '' : 'Оп.1'}</span></h2>
 
     <div class="field"><label>Название *</label><input id="f-title" value="${prod.title||''}"></div>
     <div class="row2">
-      <div class="field"><label>Театр</label><input id="f-theater" value="${prod.theater_name||''}"></div>
+      <div class="field">
+        <label>Театр <span style="font-size:0.68rem;color:#999;font-weight:normal">(пусто → «Прочие постановки» на сайте)</span></label>
+        <input id="f-theater" value="${prod.theater_name||''}" list="theater-datalist" autocomplete="off" placeholder="Начните вводить название…">
+        <datalist id="theater-datalist">${theaterOptions}</datalist>
+      </div>
       <div class="field"><label>Драматург</label><input id="f-playwright" value="${prod.playwright||''}"></div>
     </div>
     <div class="row2">
