@@ -231,6 +231,7 @@
   <h1>Архив Боякова — Админка</h1>
   <a href="index.html" target="_blank">→ Архив</a>
   <a href="site.html" target="_blank">→ Сайт</a>
+  <a href="#" onclick="showTheatersPanel();return false" id="nav-theaters-btn" style="color:rgba(255,255,255,0.5);text-decoration:none;font-size:0.75rem;padding:0 0.75rem;height:46px;display:flex;align-items:center">🎭 Театры</a>
   <a href="#" onclick="showSiteEditor();return false" id="nav-site-btn" style="color:rgba(255,255,255,0.5);text-decoration:none;font-size:0.75rem;padding:0 0.75rem;height:46px;display:flex;align-items:center">⚙ Ред. сайта</a>
 </div>
 
@@ -259,6 +260,49 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- Панель управления театрами -->
+<div class="site-editor-overlay" id="theaters-overlay">
+  <div class="site-editor" style="width:500px">
+    <div class="site-editor-header">
+      <h3>Управление театрами</h3>
+      <button onclick="closeTheatersPanel()">✕</button>
+    </div>
+    <div class="site-editor-body">
+      <div style="display:flex;gap:6px;margin-bottom:0.85rem">
+        <input id="th-name" placeholder="Название театра" style="flex:1;border:1px solid #ddd;padding:0.38rem 0.55rem;font-size:0.83rem">
+        <button class="btn" onclick="createTheater()">+ Добавить</button>
+      </div>
+      <div id="theaters-list" style="border:1px solid #e0ddd8;max-height:400px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Редактор театра -->
+<div class="site-editor-overlay" id="theater-editor-overlay">
+  <div class="site-editor">
+    <div class="site-editor-header">
+      <h3 id="te-title">Редактор театра</h3>
+      <button onclick="closeTheaterEditor()">✕</button>
+    </div>
+    <div class="site-editor-body">
+      <div class="field">
+        <label>Логотип</label>
+        <div id="te-photo-wrap" onclick="document.getElementById('te-photo-file').click()" style="cursor:pointer;margin-bottom:0.65rem">
+          <div class="site-photo-placeholder" id="te-photo-placeholder">Нажмите для загрузки</div>
+        </div>
+        <input type="file" id="te-photo-file" accept="image/*" style="display:none" onchange="uploadTheaterLogo(this)">
+      </div>
+      <div class="field"><label>Название</label><input id="te-name" placeholder="Название театра"></div>
+      <div class="field"><label>Описание</label><textarea id="te-desc" style="min-height:100px"></textarea></div>
+      <div class="form-actions">
+        <button class="btn" onclick="saveTheater()">Сохранить</button>
+        <button class="btn-outline" onclick="closeTheaterEditor()">Отмена</button>
+        <button class="btn-sm btn-danger" id="te-del-btn" style="display:none" onclick="deleteTheater()">Удалить</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Редактор сайта-визитки -->
 <div class="site-editor-overlay" id="site-editor-overlay">
@@ -290,7 +334,7 @@
 </div>
 
 <script>
-const API = 'http://178.253.38.120/api';
+const API = window.location.origin === 'file://' ? 'https://theatre.82-38-69-161.sslip.io/api' : '/api';
 
 // Состояние
 let allInventories = [];
@@ -307,6 +351,9 @@ let activeYear = null;
 const IMAGE_EXTS = ['.jpg','.jpeg','.png','.gif','.webp','.tiff'];
 const DOC_ICONS = {'фотография':'🖼','афиша':'🎭','программка':'📋','видеозапись':'🎬','рецензия':'📝','текст пьесы':'📖','договор':'📑','интервью':'🎙','лекция':'📚','публикация':'📰','концепция':'💡','черновик':'✏️','переписка':'✉️','другое':'📄'};
 function isImage(p) { return p && IMAGE_EXTS.some(e => p.toLowerCase().endsWith(e)); }
+
+const MEDIA_BASE = window.location.origin === 'file://' ? 'https://theatre.82-38-69-161.sslip.io/media' : '/media';
+function public_url_client(file_path) { return `${MEDIA_BASE}/${file_path}`; }
 
 // ========================
 // ИНИЦИАЛИЗАЦИЯ
@@ -513,6 +560,26 @@ async function saveCaseDescription(caseId, invId) {
   }
 }
 
+async function uploadCaseLogo(caseId, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const fd = new FormData();
+  fd.append('file', file);
+  const r = await fetch(`${API}/archive/cases/${caseId}/upload-logo`, {method:'POST', body:fd});
+  const d = await r.json();
+  if (d.url) {
+    const wrap = document.getElementById('case-logo-wrap');
+    if (wrap) {
+      wrap.innerHTML = `<img src="${d.url}" style="width:72px;height:72px;object-fit:contain;border:1px solid #e0ddd8;background:#fafaf9;display:block">`;
+    }
+    currentCaseData.case.logo_path = d.url;
+    toast('Логотип загружен');
+  } else {
+    toast('Ошибка загрузки', true);
+  }
+  input.value = '';
+}
+
 function renderCaseContent(d) {
   const c = d.case;
   const units = d.units || [];
@@ -524,16 +591,29 @@ function renderCaseContent(d) {
   const isTheater = invTitle.includes('театр') || invTitle.includes('проект');
   const isPersons = invTitle.includes('персонал') || invTitle.includes('личное') || invTitle.includes('персоналии');
 
+  const logoUrl = c.logo_path ? public_url_client(c.logo_path) : null;
+
   let html = `
-    <div style="display:flex;align-items:baseline;justify-content:space-between;gap:1rem;margin-bottom:0.5rem">
-      <h2 style="margin:0">${c.title} <span class="case-ref">${ref}</span></h2>
-      <button class="btn-sm btn-outline" onclick="toggleCaseDescEdit(${c.id},${currentInvId})"
-        style="flex-shrink:0;font-size:0.68rem">✏ Описание</button>
-    </div>
-    <div id="case-desc-view">
-      ${c.description
-        ? `<p style="font-size:0.85rem;color:#555;margin-bottom:0.85rem;line-height:1.5">${c.description}</p>`
-        : `<p style="font-size:0.78rem;color:#bbb;margin-bottom:0.85rem;font-family:sans-serif;font-style:italic">Описание не добавлено</p>`}
+    <div style="display:flex;align-items:flex-start;gap:1rem;margin-bottom:0.85rem">
+      <div id="case-logo-wrap" onclick="document.getElementById('case-logo-file').click()"
+        style="cursor:pointer;flex-shrink:0" title="Нажмите для загрузки логотипа">
+        ${logoUrl
+          ? `<img src="${logoUrl}" style="width:72px;height:72px;object-fit:contain;border:1px solid #e0ddd8;background:#fafaf9;display:block">`
+          : `<div style="width:72px;height:72px;border:1.5px dashed #ccc;background:#fafaf9;display:flex;align-items:center;justify-content:center;font-size:0.62rem;color:#bbb;text-align:center;line-height:1.3">Лого</div>`}
+      </div>
+      <input type="file" id="case-logo-file" accept="image/*" style="display:none" onchange="uploadCaseLogo(${c.id},this)">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:0.5rem;margin-bottom:0.4rem">
+          <h2 style="margin:0">${c.title} <span class="case-ref">${ref}</span></h2>
+          <button class="btn-sm btn-outline" onclick="toggleCaseDescEdit(${c.id},${currentInvId})"
+            style="flex-shrink:0;font-size:0.68rem">✏ Описание</button>
+        </div>
+        <div id="case-desc-view">
+          ${c.description
+            ? `<p style="font-size:0.85rem;color:#555;line-height:1.5">${c.description}</p>`
+            : `<p style="font-size:0.78rem;color:#bbb;font-family:sans-serif;font-style:italic">Описание не добавлено</p>`}
+        </div>
+      </div>
     </div>
     <div id="case-desc-edit" style="display:none;margin-bottom:1rem">
       <textarea id="f-case-desc" rows="4"
@@ -703,6 +783,15 @@ async function openProductionForm(id, caseId) {
       <div class="field"><label>Художник по свету</label><input id="f-lighting" value="${prod.lighting_designer||''}"></div>
     </div>
     <div class="field"><label>Описание</label><textarea id="f-desc">${prod.description||''}</textarea></div>
+
+    <div class="section-title">Фотография</div>
+    <div class="drop-zone" id="prod-drop-zone" onclick="document.getElementById('prod-photo-inp').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleProdPhotoDrop(event)" ${!id ? 'style="opacity:0.5;pointer-events:none" title="Сохраните спектакль сначала"' : ''}>
+      <p>Нажмите или перетащите фото</p>
+      <input type="file" id="prod-photo-inp" accept="image/*" onchange="selectProdPhoto(this.files[0])" style="display:none">
+    </div>
+    <div style="font-size:0.72rem;color:#666;margin-top:0.3rem" id="prod-photo-name">${!id ? 'Сохраните спектакль сначала' : 'Фото не выбрано'}</div>
+    <div class="progress" id="prod-photo-prog" style="display:none;margin-top:0.5rem"><div class="fill" id="prod-photo-fill"></div></div>
+    <button class="btn-outline" style="margin-top:0.5rem" onclick="uploadProdPhoto(${id})" ${!id ? 'disabled' : ''}>Загрузить фото</button>
 
     <div class="form-actions">
       <button class="btn" onclick="saveProduction(${id||0},${caseId||prod.inventory_case_id||0})">${id?'Сохранить':'Создать'}</button>
@@ -1018,8 +1107,16 @@ function renderUploadForm(entityType, entityId, caseId) {
       </div>
       <div class="field"><label>Описание</label><textarea id="u-desc" style="min-height:50px"></textarea></div>
       <div class="row2">
-        <div class="field"><label>Спектакли</label><div class="multiselect" id="u-prods">${prodChecks}</div></div>
-        <div class="field"><label>Персоны</label><div class="multiselect" id="u-pers">${persChecks}</div></div>
+        <div class="field">
+          <label>Спектакли</label>
+          <input id="prod-search" placeholder="Поиск..." style="width:100%;border:1px solid #ddd;padding:0.32rem 0.5rem;font-size:0.78rem;outline:none;margin-bottom:0.3rem" onkeyup="filterMultiselect('u-prods','prod-search')">
+          <div class="multiselect" id="u-prods">${prodChecks}</div>
+        </div>
+        <div class="field">
+          <label>Персоны</label>
+          <input id="pers-search" placeholder="Поиск..." style="width:100%;border:1px solid #ddd;padding:0.32rem 0.5rem;font-size:0.78rem;outline:none;margin-bottom:0.3rem" onkeyup="filterMultiselect('u-pers','pers-search')">
+          <div class="multiselect" id="u-pers">${persChecks}</div>
+        </div>
       </div>
       <div class="progress" id="u-prog"><div class="fill" id="u-fill"></div></div>
       <div style="display:flex;gap:6px;margin-top:0.65rem">
@@ -1083,6 +1180,68 @@ async function uploadDocument(entityType, entityId, caseId) {
   } else {
     toast('Ошибка загрузки', true);
   }
+}
+
+// ── Фото спектакля ──
+let prodPhotoFile = null;
+
+function selectProdPhoto(file) {
+  prodPhotoFile = file;
+  const el = document.getElementById('prod-photo-name');
+  if (el) el.textContent = file ? file.name : 'Фото не выбрано';
+  const inp = document.getElementById('prod-photo-inp');
+  if (inp && file) {
+    setTimeout(() => { inp.value = ''; }, 100);
+  }
+}
+
+function handleProdPhotoDrop(event) {
+  event.preventDefault();
+  document.getElementById('prod-drop-zone')?.classList.remove('drag');
+  selectProdPhoto(event.dataTransfer.files[0]);
+}
+
+async function uploadProdPhoto(prodId) {
+  if (!prodPhotoFile) { toast('Выберите фото', true); return; }
+  const prog = document.getElementById('prod-photo-prog');
+  const fill = document.getElementById('prod-photo-fill');
+  if (prog) { prog.style.display='block'; fill.style.width='40%'; }
+
+  const formData = new FormData();
+  formData.append('file', prodPhotoFile);
+  formData.append('title', prodPhotoFile.name.replace(/\.[^.]+$/,''));
+  formData.append('doc_type', 'фотография');
+  formData.append('production_ids', JSON.stringify([prodId]));
+  formData.append('person_ids', JSON.stringify([]));
+  formData.append('inventory_id', '');
+
+  const res = await fetch(`${API}/upload/document`, {method:'POST', body:formData});
+  const data = await res.json();
+
+  if (fill) { fill.style.width='100%'; setTimeout(()=>{ if(prog) prog.style.display='none'; },500); }
+
+  if (data.status==='ok') {
+    toast('Фото загружено');
+    prodPhotoFile = null;
+    const inp = document.getElementById('prod-photo-inp');
+    if (inp) inp.value = '';
+    openProductionForm(prodId);
+  } else {
+    toast('Ошибка загрузки', true);
+  }
+}
+
+// ── Поиск в мультиселект ──
+function filterMultiselect(containerId, searchId) {
+  const searchVal = document.getElementById(searchId)?.value.toLowerCase() || '';
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const labels = container.querySelectorAll('label');
+  labels.forEach(label => {
+    const text = label.textContent.toLowerCase();
+    label.style.display = text.includes(searchVal) ? 'flex' : 'none';
+  });
 }
 
 // ========================
@@ -1165,6 +1324,139 @@ function toast(msg, isErr) {
   t.textContent = msg;
   t.className = 'toast show' + (isErr?' err':'');
   setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+// ========================
+// УПРАВЛЕНИЕ ТЕАТРАМИ
+// ========================
+
+let allTheaters = [];
+let currentTheaterId = null;
+let theaterLogoFile = null;
+
+async function loadTheaters() {
+  const r = await fetch(`${API}/theaters`);
+  allTheaters = await r.json();
+}
+
+async function showTheatersPanel() {
+  await loadTheaters();
+  renderTheatersList();
+  document.getElementById('theaters-overlay').classList.add('open');
+}
+
+function closeTheatersPanel() {
+  document.getElementById('theaters-overlay').classList.remove('open');
+}
+
+function renderTheatersList() {
+  const list = document.getElementById('theaters-list');
+  if (!allTheaters.length) {
+    list.innerHTML = '<div style="color:#aaa;padding:1rem;text-align:center">Нет театров</div>';
+    return;
+  }
+  list.innerHTML = allTheaters.map(t => `
+    <div style="display:flex;align-items:center;gap:8px;padding:0.65rem;border-bottom:1px solid #f0ede8;cursor:pointer;hover:background:#faf9f7" onclick="openTheaterEditor(${t.id})">
+      <div style="flex:1">
+        <div style="font-size:0.85rem">${t.name}</div>
+        <div style="font-size:0.7rem;color:#aaa;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.description||'Без описания'}</div>
+      </div>
+      ${t.logo_path ? `<img src="${t.logo_path.includes('http')?t.logo_path:'/media/'+t.logo_path}" style="width:32px;height:32px;object-fit:cover;border:1px solid #ddd">` : ''}
+      <span style="font-size:0.7rem;color:#aaa">→</span>
+    </div>`).join('');
+}
+
+async function createTheater() {
+  const name = document.getElementById('th-name').value.trim();
+  if (!name) { toast('Введите название театра', true); return; }
+  const r = await fetch(`${API}/theaters`, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name, description:''})
+  });
+  const data = await r.json();
+  if (data.id) {
+    toast('Театр создан');
+    document.getElementById('th-name').value = '';
+    await loadTheaters();
+    renderTheatersList();
+  }
+}
+
+async function openTheaterEditor(id) {
+  currentTheaterId = id;
+  const r = await fetch(`${API}/theaters/${id}`);
+  const theater = await r.json();
+  document.getElementById('te-title').textContent = theater.name;
+  document.getElementById('te-name').value = theater.name;
+  document.getElementById('te-desc').value = theater.description || '';
+  const wrap = document.getElementById('te-photo-wrap');
+  if (theater.logo_path) {
+    const url = theater.logo_path.includes('http') ? theater.logo_path : '/media/' + theater.logo_path;
+    wrap.innerHTML = `<img class="site-photo-preview" src="${url}" alt="">`;
+  } else {
+    wrap.innerHTML = `<div class="site-photo-placeholder" id="te-photo-placeholder">Нажмите для загрузки</div>`;
+  }
+  wrap.onclick = () => document.getElementById('te-photo-file').click();
+  document.getElementById('te-del-btn').style.display = 'block';
+  document.getElementById('theater-editor-overlay').classList.add('open');
+  theaterLogoFile = null;
+}
+
+function closeTheaterEditor() {
+  document.getElementById('theater-editor-overlay').classList.remove('open');
+  currentTheaterId = null;
+  theaterLogoFile = null;
+}
+
+function selectTheaterLogo(file) {
+  theaterLogoFile = file;
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const wrap = document.getElementById('te-photo-wrap');
+      wrap.innerHTML = `<img class="site-photo-preview" src="${e.target.result}" alt="">`;
+      wrap.onclick = () => document.getElementById('te-photo-file').click();
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+async function uploadTheaterLogo(input) {
+  const file = input.files[0];
+  if (!file || !currentTheaterId) return;
+  selectTheaterLogo(file);
+}
+
+async function saveTheater() {
+  if (!currentTheaterId) return;
+  const name = document.getElementById('te-name').value.trim();
+  if (!name) { toast('Введите название', true); return; }
+
+  await fetch(`${API}/theaters/${currentTheaterId}`, {
+    method:'PUT', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name, description:document.getElementById('te-desc').value.trim()||null})
+  });
+
+  if (theaterLogoFile) {
+    const fd = new FormData();
+    fd.append('file', theaterLogoFile);
+    await fetch(`${API}/theaters/${currentTheaterId}/upload-logo`, {method:'POST', body:fd});
+  }
+
+  toast('Театр сохранён');
+  await loadTheaters();
+  renderTheatersList();
+  closeTheaterEditor();
+}
+
+async function deleteTheater() {
+  if (!confirm('Удалить театр?')) return;
+  if (!currentTheaterId) return;
+  await fetch(`${API}/theaters/${currentTheaterId}`, {method:'DELETE'});
+  toast('Театр удалён');
+  await loadTheaters();
+  renderTheatersList();
+  closeTheaterEditor();
 }
 
 init();

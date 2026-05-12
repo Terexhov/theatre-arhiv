@@ -397,6 +397,22 @@ async def upload_site_photo(file: UploadFile = File(...)):
     finally:
         await db.close()
 
+@app.post("/archive/cases/{case_id}/upload-logo", tags=["archive"], summary="Загрузить логотип дела")
+async def upload_case_logo(case_id: int, file: UploadFile = File(...)):
+    db = await get_db()
+    try:
+        file_bytes = await file.read()
+        file_path = save_file(file_bytes, file.filename)
+
+        old_row = await db.fetchrow("SELECT logo_path FROM cases WHERE id=$1", case_id)
+        if old_row and old_row["logo_path"]:
+            delete_file(old_row["logo_path"])
+
+        await db.execute("UPDATE cases SET logo_path=$1 WHERE id=$2", file_path, case_id)
+        return resp({"url": public_url(file_path), "status": "ok"})
+    finally:
+        await db.close()
+
 @app.delete("/archive/cases/{case_id}", tags=["archive"], summary="Удалить дело")
 async def delete_case(case_id: int):
     db = await get_db()
@@ -832,5 +848,88 @@ async def delete_document(doc_id: int):
         await db.execute("DELETE FROM archive_units WHERE object_type='document' AND object_id=$1", doc_id)
         await db.execute("DELETE FROM documents WHERE id=$1", doc_id)
         return resp({"status": "ok"})
+    finally:
+        await db.close()
+
+# ========================
+# ТЕАТРЫ
+# ========================
+
+class TheaterIn(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+@app.get("/theaters", tags=["theaters"], summary="Список театров")
+async def list_theaters():
+    db = await get_db()
+    try:
+        rows = await db.fetch("SELECT id, name, description, logo_path FROM theaters ORDER BY name")
+        return resp([dict(r) for r in rows])
+    finally:
+        await db.close()
+
+@app.get("/theaters/{theater_id}", tags=["theaters"], summary="Карточка театра")
+async def get_theater(theater_id: int):
+    db = await get_db()
+    try:
+        row = await db.fetchrow("SELECT id, name, description, logo_path FROM theaters WHERE id=$1", theater_id)
+        if not row:
+            return resp({"error": "не найдено"})
+        return resp(dict(row))
+    finally:
+        await db.close()
+
+@app.post("/theaters", tags=["theaters"], summary="Создать театр")
+async def create_theater(t: TheaterIn):
+    db = await get_db()
+    try:
+        row = await db.fetchrow(
+            "INSERT INTO theaters (name, description) VALUES ($1, $2) RETURNING id",
+            t.name, t.description
+        )
+        return resp({"id": row["id"], "status": "ok"})
+    finally:
+        await db.close()
+
+@app.put("/theaters/{theater_id}", tags=["theaters"], summary="Обновить театр")
+async def update_theater(theater_id: int, t: TheaterIn):
+    db = await get_db()
+    try:
+        await db.execute(
+            "UPDATE theaters SET name=$1, description=$2, updated_at=now() WHERE id=$3",
+            t.name, t.description, theater_id
+        )
+        return resp({"status": "ok"})
+    finally:
+        await db.close()
+
+@app.delete("/theaters/{theater_id}", tags=["theaters"], summary="Удалить театр")
+async def delete_theater(theater_id: int):
+    db = await get_db()
+    try:
+        row = await db.fetchrow("SELECT logo_path FROM theaters WHERE id=$1", theater_id)
+        if row and row["logo_path"]:
+            delete_file(row["logo_path"])
+        await db.execute("DELETE FROM theaters WHERE id=$1", theater_id)
+        return resp({"status": "ok"})
+    finally:
+        await db.close()
+
+@app.post("/theaters/{theater_id}/upload-logo", tags=["theaters"], summary="Загрузить логотип театра")
+async def upload_theater_logo(theater_id: int, file: UploadFile = File(...)):
+    db = await get_db()
+    try:
+        file_bytes = await file.read()
+        file_path = save_file(file_bytes, file.filename)
+
+        old_row = await db.fetchrow("SELECT logo_path FROM theaters WHERE id=$1", theater_id)
+        if old_row and old_row["logo_path"]:
+            delete_file(old_row["logo_path"])
+
+        await db.execute(
+            "UPDATE theaters SET logo_path=$1, updated_at=now() WHERE id=$2",
+            file_path, theater_id
+        )
+        return resp({"url": public_url(file_path), "status": "ok"})
     finally:
         await db.close()
